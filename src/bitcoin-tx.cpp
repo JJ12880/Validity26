@@ -101,14 +101,14 @@ static int AppInitRawTx(int argc, char* argv[])
 
     if (argc < 2 || HelpRequested(gArgs) || gArgs.IsArgSet("-version")) {
         // First part of help message is specific to this utility
-        std::string strUsage = PACKAGE_NAME " blackmore-tx utility version " + FormatFullVersion() + "\n";
+        std::string strUsage = PACKAGE_NAME " validity-tx utility version " + FormatFullVersion() + "\n";
 
         if (gArgs.IsArgSet("-version")) {
             strUsage += FormatParagraph(LicenseInfo());
         } else {
             strUsage += "\n"
-                "Usage:  blackmore-tx [options] <hex-tx> [commands]  Update hex-encoded blackcoin transaction\n"
-                "or:     blackmore-tx [options] -create [commands]   Create hex-encoded blackcoin transaction\n"
+                "Usage:  validity-tx [options] <hex-tx> [commands]  Update hex-encoded validity transaction\n"
+                "or:     validity-tx [options] -create [commands]   Create hex-encoded validity transaction\n"
                 "\n";
             strUsage += gArgs.GetHelpMessage();
         }

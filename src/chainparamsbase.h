@@ -7,13 +7,14 @@
 
 #include <util/chaintype.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
 class ArgsManager;
 
 /**
- * CBaseChainParams defines the base parameters (shared between blackmore-cli and blackmored)
+ * CBaseChainParams defines the base parameters (shared between validity-cli and validityd)
  * of a given instance of the Bitcoin system.
  */
 class CBaseChainParams

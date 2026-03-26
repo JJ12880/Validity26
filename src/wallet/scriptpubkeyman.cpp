@@ -2329,7 +2329,7 @@ bool DescriptorScriptPubKeyMan::SetupDescriptorGeneration(const CExtKey& master_
     if (Params().IsTestChain()) {
         desc_prefix += "/1h";
     } else {
-        // Blackcoin: Use BIP44 value according to https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+        // Validity: Use BIP44 value according to https://github.com/satoshilabs/slips/blob/master/slip-0044.md
         desc_prefix += "/10h";
     }
 

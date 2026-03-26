@@ -85,33 +85,33 @@ EXTRA_LIBRARIES += \
   $(LIBBITCOIN_ZMQ)
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += blackmored
+  bin_PROGRAMS += validityd
 endif
 
 if BUILD_BITCOIN_NODE
-  bin_PROGRAMS += blackmore-node
+  bin_PROGRAMS += validity-node
 endif
 
 if BUILD_BITCOIN_CLI
-  bin_PROGRAMS += blackmore-cli
+  bin_PROGRAMS += validity-cli
 endif
 
 if BUILD_BITCOIN_TX
-  bin_PROGRAMS += blackmore-tx
+  bin_PROGRAMS += validity-tx
 endif
 
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
-  bin_PROGRAMS += blackmore-wallet
+  bin_PROGRAMS += validity-wallet
 endif
 endif
 
 if BUILD_BITCOIN_UTIL
-  bin_PROGRAMS += blackmore-util
+  bin_PROGRAMS += validity-util
 endif
 
 if BUILD_BITCOIN_CHAINSTATE
-  bin_PROGRAMS += blackmore-chainstate
+  bin_PROGRAMS += validity-chainstate
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -782,17 +782,17 @@ libbitcoin_cli_a_SOURCES = \
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# blackmored & blackmore-node binaries #
-blackmore_daemon_sources = bitcoind.cpp
-blackmore_bin_cppflags = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-blackmore_bin_cxxflags = $(AM_CXXFLAGS) $(PIE_FLAGS)
-blackmore_bin_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+# validityd & validity-node binaries #
+validity_daemon_sources = bitcoind.cpp
+validity_bin_cppflags = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+validity_bin_cxxflags = $(AM_CXXFLAGS) $(PIE_FLAGS)
+validity_bin_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-blackmore_daemon_sources += bitcoind-res.rc
+validity_daemon_sources += bitcoind-res.rc
 endif
 
-blackmore_bin_ldadd = \
+validity_bin_ldadd = \
   $(LIBBITCOIN_WALLET) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -804,53 +804,53 @@ blackmore_bin_ldadd = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-blackmore_bin_ldadd += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
+validity_bin_ldadd += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
 
-blackmored_SOURCES = $(blackmore_daemon_sources) init/bitcoind.cpp
-blackmored_CPPFLAGS = $(blackmore_bin_cppflags)
-blackmored_CXXFLAGS = $(blackmore_bin_cxxflags)
-blackmored_LDFLAGS = $(blackmore_bin_ldflags)
-blackmored_LDADD = $(LIBBITCOIN_NODE) $(blackmore_bin_ldadd)
+validityd_SOURCES = $(validity_daemon_sources) init/bitcoind.cpp
+validityd_CPPFLAGS = $(validity_bin_cppflags)
+validityd_CXXFLAGS = $(validity_bin_cxxflags)
+validityd_LDFLAGS = $(validity_bin_ldflags)
+validityd_LDADD = $(LIBBITCOIN_NODE) $(validity_bin_ldadd)
 
-blackmore_node_SOURCES = $(blackmore_daemon_sources) init/bitcoin-node.cpp
-blackmore_node_CPPFLAGS = $(blackmore_bin_cppflags)
-blackmore_node_CXXFLAGS = $(blackmore_bin_cxxflags)
-blackmore_node_LDFLAGS = $(blackmore_bin_ldflags)
-blackmore_node_LDADD = $(LIBBITCOIN_NODE) $(blackmore_bin_ldadd) $(LIBBITCOIN_IPC) $(LIBMULTIPROCESS_LIBS)
+validity_node_SOURCES = $(validity_daemon_sources) init/bitcoin-node.cpp
+validity_node_CPPFLAGS = $(validity_bin_cppflags)
+validity_node_CXXFLAGS = $(validity_bin_cxxflags)
+validity_node_LDFLAGS = $(validity_bin_ldflags)
+validity_node_LDADD = $(LIBBITCOIN_NODE) $(validity_bin_ldadd) $(LIBBITCOIN_IPC) $(LIBMULTIPROCESS_LIBS)
 
-# blackmore-cli binary #
-blackmore_cli_SOURCES = bitcoin-cli.cpp
-blackmore_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
-blackmore_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-blackmore_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+# validity-cli binary #
+validity_cli_SOURCES = bitcoin-cli.cpp
+validity_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
+validity_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+validity_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-blackmore_cli_SOURCES += bitcoin-cli-res.rc
+validity_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-blackmore_cli_LDADD = \
+validity_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO)
 
-blackmore_cli_LDADD += $(EVENT_LIBS)
+validity_cli_LDADD += $(EVENT_LIBS)
 #
 
-# blackmore-tx binary #
-blackmore_tx_SOURCES = \
+# validity-tx binary #
+validity_tx_SOURCES = \
   bitcoin-tx.cpp \
   timedatadummy.cpp
-blackmore_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-blackmore_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-blackmore_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+validity_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+validity_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+validity_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-blackmore_tx_SOURCES += bitcoin-tx-res.rc
+validity_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-blackmore_tx_LDADD = \
+validity_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -859,13 +859,13 @@ blackmore_tx_LDADD = \
   $(LIBSECP256K1)
 #
 
-# blackmore-wallet binary #
-blackmore_wallet_SOURCES = bitcoin-wallet.cpp
-blackmore_wallet_SOURCES += init/bitcoin-wallet.cpp
-blackmore_wallet_CPPFLAGS = $(blackmore_bin_cppflags)
-blackmore_wallet_CXXFLAGS = $(blackmore_bin_cxxflags)
-blackmore_wallet_LDFLAGS = $(blackmore_bin_ldflags)
-blackmore_wallet_LDADD = \
+# validity-wallet binary #
+validity_wallet_SOURCES = bitcoin-wallet.cpp
+validity_wallet_SOURCES += init/bitcoin-wallet.cpp
+validity_wallet_CPPFLAGS = $(validity_bin_cppflags)
+validity_wallet_CXXFLAGS = $(validity_bin_cxxflags)
+validity_wallet_LDFLAGS = $(validity_bin_ldflags)
+validity_wallet_LDADD = \
   $(LIBBITCOIN_WALLET_TOOL) \
   $(LIBBITCOIN_WALLET) \
   $(LIBBITCOIN_NODE) \
@@ -879,21 +879,21 @@ blackmore_wallet_LDADD = \
   $(SQLITE_LIBS)
 
 if TARGET_WINDOWS
-blackmore_wallet_SOURCES += bitcoin-wallet-res.rc
+validity_wallet_SOURCES += bitcoin-wallet-res.rc
 endif
 #
 
-# blackmore-util binary #
-blackmore_util_SOURCES = bitcoin-util.cpp
-blackmore_util_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-blackmore_util_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-blackmore_util_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+# validity-util binary #
+validity_util_SOURCES = bitcoin-util.cpp
+validity_util_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+validity_util_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+validity_util_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-blackmore_util_SOURCES += bitcoin-util-res.rc
+validity_util_SOURCES += bitcoin-util-res.rc
 endif
 
-blackmore_util_LDADD = \
+validity_util_LDADD = \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
   $(LIBUNIVALUE) \
@@ -902,17 +902,17 @@ blackmore_util_LDADD = \
   $(LIBSECP256K1)
 #
 
-# blackmore-chainstate binary #
-blackmore_chainstate_SOURCES = bitcoin-chainstate.cpp
-blackmore_chainstate_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
-blackmore_chainstate_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+# validity-chainstate binary #
+validity_chainstate_SOURCES = bitcoin-chainstate.cpp
+validity_chainstate_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
+validity_chainstate_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-blackmore_chainstate_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(PTHREAD_FLAGS) $(LIBTOOL_APP_LDFLAGS) -static
-blackmore_chainstate_LDADD = $(LIBBITCOINKERNEL)
+validity_chainstate_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(PTHREAD_FLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+validity_chainstate_LDADD = $(LIBBITCOINKERNEL)
 
 # libtool is unable to calculate this indirect dependency, presumably because it's a subproject.
 # libsecp256k1 only needs to be linked in when libbitcoinkernel is static.
-blackmore_chainstate_LDADD += $(LIBSECP256K1)
+validity_chainstate_LDADD += $(LIBSECP256K1)
 #
 
 # bitcoinkernel library #

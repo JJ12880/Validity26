@@ -45,8 +45,7 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     QString versionText     = QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
 
     QString copyrightTextBitcoin     = QChar(0xA9)+QString(" %1-%2 ").arg(2009).arg(COPYRIGHT_YEAR) + QString("The Bitcoin Core developers");
-    QString copyrightTextBlackcoin   = QChar(0xA9)+QString(" %1-%2 ").arg(2014).arg(2018) + QString("The Blackcoin developers");
-    QString copyrightTextBlackmore   = QChar(0xA9)+QString(" %1-%2 ").arg(2018).arg(COPYRIGHT_YEAR) + QString("The Blackcoin More developers");
+    QString copyrightTextValidity   = QChar(0xA9)+QString(" %1-%2 ").arg(2015).arg(COPYRIGHT_YEAR) + QString("The Validity developers");
 
     // QString copyrightText   = QString::fromUtf8(CopyrightHolders(strprintf("\xc2\xA9 %u-%u ", 2009, COPYRIGHT_YEAR)).c_str());
     const QString& titleAddText    = networkStyle->getTitleAddText();
@@ -108,8 +107,7 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
         const int x = pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight+5;
         const int y = paddingTop+titleCopyrightVSpace;
         pixPaint.drawText(x,y,copyrightTextBitcoin);
-        pixPaint.drawText(x,y+10,copyrightTextBlackcoin);
-        pixPaint.drawText(x,y+20,copyrightTextBlackmore);
+        pixPaint.drawText(x,y+10,copyrightTextValidity);
     }
 
     // draw additional text if special network

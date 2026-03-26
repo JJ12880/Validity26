@@ -130,7 +130,7 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
     widget->setFont(fixedPitchFont());
     // We don't want translators to use own addresses in translations
     // and this is the only place, where this address is supplied.
-    widget->setPlaceholderText(QObject::tr("Enter a Blackcoin address (e.g. %1)").arg(
+    widget->setPlaceholderText(QObject::tr("Enter a Validity address (e.g. %1)").arg(
         QString::fromStdString(DummyAddress(Params()))));
     widget->setValidator(new BitcoinAddressEntryValidator(parent));
     widget->setCheckValidator(new BitcoinAddressCheckValidator(parent));
@@ -144,7 +144,7 @@ void AddButtonShortcut(QAbstractButton* button, const QKeySequence& shortcut)
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
     // return if URI is not valid or is no bitcoin: URI
-    if(!uri.isValid() || uri.scheme() != QString("blackcoin"))
+    if(!uri.isValid() || uri.scheme() != QString("validity"))
         return false;
 
     SendCoinsRecipient rv;
@@ -207,7 +207,7 @@ QString formatBitcoinURI(const SendCoinsRecipient &info)
 {
     bool bech_32 = info.address.startsWith(QString::fromStdString(Params().Bech32HRP() + "1"));
 
-    QString ret = QString("blackcoin:%1").arg(bech_32 ? info.address.toUpper() : info.address);
+    QString ret = QString("validity:%1").arg(bech_32 ? info.address.toUpper() : info.address);
     int paramCount = 0;
 
     if (info.amount)
@@ -442,7 +442,7 @@ bool openBitcoinConf()
 
     configFile.close();
 
-    /* Open blackmore.conf with the associated application */
+    /* Open validity.conf with the associated application */
     bool res = QDesktopServices::openUrl(QUrl::fromLocalFile(PathToQString(pathConfig)));
 #ifdef Q_OS_MACOS
     // Workaround for macOS-specific behavior; see #15409.
@@ -506,10 +506,10 @@ fs::path static StartupShortcutPath()
 {
     ChainType chain = gArgs.GetChainType();
     if (chain == ChainType::MAIN)
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Blackmore.lnk";
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Validity.lnk";
     if (chain == ChainType::TESTNET) // Remove this special case when testnet CBaseChainParams::DataDir() is incremented to "testnet4"
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Blackmore (testnet).lnk";
-    return GetSpecialFolderPath(CSIDL_STARTUP) / fs::u8path(strprintf("Blackmore (%s).lnk", ChainTypeToString(chain)));
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Validity (testnet).lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / fs::u8path(strprintf("Validity (%s).lnk", ChainTypeToString(chain)));
 }
 
 bool GetStartOnSystemStartup()
@@ -589,8 +589,8 @@ fs::path static GetAutostartFilePath()
 {
     ChainType chain = gArgs.GetChainType();
     if (chain == ChainType::MAIN)
-        return GetAutostartDir() / "blackmore.desktop";
-    return GetAutostartDir() / fs::u8path(strprintf("blackmore-%s.desktop", ChainTypeToString(chain)));
+        return GetAutostartDir() / "validity.desktop";
+    return GetAutostartDir() / fs::u8path(strprintf("validity-%s.desktop", ChainTypeToString(chain)));
 }
 
 bool GetStartOnSystemStartup()
@@ -631,13 +631,13 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         if (!optionFile.good())
             return false;
         ChainType chain = gArgs.GetChainType();
-        // Write a blackmore.desktop file to the autostart directory:
+        // Write a validity.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
         if (chain == ChainType::MAIN)
-            optionFile << "Name=Blackcoin\n";
+            optionFile << "Name=Validity\n";
         else
-            optionFile << strprintf("Name=Blackcoin (%s)\n", ChainTypeToString(chain));
+            optionFile << strprintf("Name=Validity (%s)\n", ChainTypeToString(chain));
         optionFile << "Exec=" << pszExePath << strprintf(" -min -chain=%s\n", ChainTypeToString(chain));
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";

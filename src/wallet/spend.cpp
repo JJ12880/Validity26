@@ -140,7 +140,7 @@ TxSize CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *walle
     // Segwit marker and flag
     if (is_segwit) weight += 2;
 
-    // Blackcoin: transaction weight should be increased for v1 transactions because of additional nTime field
+    // Validity: transaction weight should be increased for v1 transactions because of additional nTime field
     if (tx.nVersion < 2)
         weight += 4 * WITNESS_SCALE_FACTOR;
 
@@ -1143,7 +1143,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
             return util::Error{Untranslated(STR_INTERNAL_BUG("Change adjustment: Fee needed != fee paid"))};
         }
     }
-    // Blackcoin: and if we don't pay enough fees, reduce the change
+    // Validity: and if we don't pay enough fees, reduce the change
     else if (nChangePosInOut != -1 && fee_needed > current_fee) {
         auto& change = txNew.vout.at(nChangePosInOut);
         change.nValue -= fee_needed - current_fee;

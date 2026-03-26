@@ -181,7 +181,7 @@ util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool
     }
     result.ComputeAndSetWaste(cost_of_change, cost_of_change, CAmount{0});
 
-    // Blackcoin ToDo: find a way to fix a possible assertion here
+    // Validity ToDo: find a way to fix a possible assertion here
     // assert(best_waste == result.GetWaste());
 
     return result;

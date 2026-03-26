@@ -39,7 +39,7 @@ RPCHelpMan importmulti();
 RPCHelpMan dumpwallet();
 RPCHelpMan importwallet();
 
-// Blackcoin
+// Validity
 /*
 // Ensure that fee levels defined in the wallet are at least as high
 // as the default levels for node policy.
@@ -187,7 +187,7 @@ BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
     CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
     CBlockIndex* newTip = m_node.chainman->ActiveChain().Tip();
 
-    // Blackcoin
+    // Validity
     /*
     // Prune the older block file.
     int file_number;

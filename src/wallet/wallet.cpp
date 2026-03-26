@@ -1508,7 +1508,7 @@ void CWallet::blockDisconnected(const interfaces::BlockInfo& block)
         }
     }
 
-    // Blackcoin - Call to abandon orphaned coinstakes after handling disconnections
+    // Validity - Call to abandon orphaned coinstakes after handling disconnections
     AbandonOrphanedCoinstakes();
 }
 
@@ -1957,7 +1957,7 @@ void CWallet::AbandonOrphanedCoinstakes()
 {
 	LOCK(cs_wallet);
 
-    // Blackcoin: m_last_block_processed_height can be < 0
+    // Validity: m_last_block_processed_height can be < 0
     // when loading the wallet during a reindex. Do nothing in that
     // case.
     if (m_last_block_processed_height < 0) {
@@ -3152,7 +3152,7 @@ bool CWallet::AttachChain(const std::shared_ptr<CWallet>& walletInstance, interf
             // Wallet is assumed to be from another chain, if genesis block in the active
             // chain differs from the genesis block known to the wallet.
             if (chain.getBlockHash(0) != locator.vHave.back()) {
-                error = Untranslated("Wallet files should not be reused across chains. Restart blackmored with -walletcrosschain to override.");
+                error = Untranslated("Wallet files should not be reused across chains. Restart validityd with -walletcrosschain to override.");
                 return false;
             }
         }

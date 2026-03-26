@@ -13,10 +13,10 @@
 
 /**
  * Name of client reported in the 'version' message. Report the same name
- * for both blackmored and blackmore-qt, to make it harder for attackers to
+ * for both validityd and validity-qt, to make it harder for attackers to
  * target servers or GUI users specifically.
  */
-const std::string CLIENT_NAME("Blackcoin More");
+const std::string CLIENT_NAME("Validity");
 
 
 #ifdef HAVE_BUILD_INFO
@@ -91,20 +91,20 @@ std::string CopyrightHolders(const std::string& strPrefix)
 
     std::string strCopyrightHolders =
         strPrefix + "The Bitcoin Core developers" +
-        "\n" + strPrefix + "The Blackcoin developers" +
-        "\n" + strPrefix + "The Blackcoin More developers";
+        "\n" + strPrefix + "The Validity developers" +
+        "\n" + strPrefix + "The Validity developers";
     return strCopyrightHolders;
 }
 
 std::string LicenseInfo()
 {
-    const std::string URL_SOURCE_CODE = "<https://github.com/CoinBlack/blackcoin-more>";
+    const std::string URL_SOURCE_CODE = "<https://github.com/RadiumCore/Validity>";
 
     return strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers").translated, COPYRIGHT_YEAR) +
            "\n" +
-           strprintf(_("Copyright (C) 2014-%i The Blackcoin Developers").translated, 2018) +
+           strprintf(_("Copyright (C) 2015-%i The Validity Developers").translated, 2018) +
            "\n" +
-           strprintf(_("Copyright (C) 2018-%i The Blackcoin More Developers").translated, COPYRIGHT_YEAR) +
+           strprintf(_("Copyright (C) 2019-%i The Validity Developers").translated, COPYRIGHT_YEAR) +
            "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "

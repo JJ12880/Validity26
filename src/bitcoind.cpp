@@ -113,7 +113,7 @@ int fork_daemon(bool nochdir, bool noclose, TokenPipeEnd& endpoint)
 
 static bool ParseArgs(ArgsManager& args, int argc, char* argv[])
 {
-    // If Qt is used, parameters/blackmore.conf are parsed in qt/bitcoin.cpp's main()
+    // If Qt is used, parameters/validity.conf are parsed in qt/bitcoin.cpp's main()
     SetupServerArgs(args);
     std::string error;
     if (!args.ParseParameters(argc, argv, error)) {
@@ -142,7 +142,7 @@ static bool ProcessInitCommands(ArgsManager& args)
         if (args.IsArgSet("-version")) {
             strUsage += FormatParagraph(LicenseInfo());
         } else {
-            strUsage += "\nUsage:  blackmored [options]                     Start " PACKAGE_NAME "\n"
+            strUsage += "\nUsage:  validityd [options]                     Start " PACKAGE_NAME "\n"
                 "\n";
             strUsage += args.GetHelpMessage();
         }
@@ -260,7 +260,7 @@ MAIN_FUNCTION
 
     SetupEnvironment();
 
-    // Connect blackmored signal handlers
+    // Connect validityd signal handlers
     noui_connect();
 
     util::ThreadSetInternalName("init");

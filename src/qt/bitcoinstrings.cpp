@@ -11,7 +11,7 @@
 static const char UNUSED *bitcoin_strings[] = {
 QT_TRANSLATE_NOOP("bitcoin-core", "The %s developers"),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
-"%s corrupt. Try using the wallet tool blackmore-wallet to salvage or "
+"%s corrupt. Try using the wallet tool validity-wallet to salvage or "
 "restoring a backup."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "%s failed to validate the -assumeutxo snapshot state. This indicates a "
@@ -64,7 +64,7 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Error: Dumpfile identifier record is incorrect. Got \"%s\", expected \"%s\"."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Error: Dumpfile version is not supported. This version of blackmore-wallet "
+"Error: Dumpfile version is not supported. This version of validity-wallet "
 "only supports version 1 dumpfiles. Got dumpfile with version %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Error: Duplicate descriptors created during migration. Your wallet may be "
@@ -232,8 +232,8 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Cannot set -peerblockfilters without -blockfi
 QT_TRANSLATE_NOOP("bitcoin-core", "Cannot write to data directory '%s'; check permissions."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Config setting for %s only applied on %s network when in [%s] section."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Copyright (C) 2009-%i The Bitcoin Core Developers"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Copyright (C) 2014-%i The Blackcoin Developers"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Copyright (C) 2018-%i The Blackcoin More Developers"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Copyright (C) 2014-%i The Validity Developers"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Copyright (C) 2018-%i The Validity Developers"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Corrupted block database detected"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Could not find asmap file %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Could not parse asmap file %s"),
