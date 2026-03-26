@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023 The Blackcoin developers
+// Copyright (c) 2014-2023 The Validity developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -433,7 +433,9 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
     }
 
     // Calculate reward
-    CAmount nReward = nFees + GetProofOfStakeSubsidy();
+    // VALIDITY-PORT: Pass height for height-dependent reward schedule
+    int nStakeHeight = pindexPrev->nHeight + 1;
+    CAmount nReward = nFees + GetProofOfStakeSubsidy(nStakeHeight);
     if (nReward < 0)
         return false;
 
@@ -443,7 +445,7 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
 
     if (isDevFundEnabled)
     {
-        nDevCredit = (GetProofOfStakeSubsidy() * wallet.m_donation_percentage) / 100;
+        nDevCredit = (GetProofOfStakeSubsidy(nStakeHeight) * wallet.m_donation_percentage) / 100;
         nMinerCredit = nReward - nDevCredit;
         nCredit += nMinerCredit;
     }

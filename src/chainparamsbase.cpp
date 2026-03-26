@@ -39,14 +39,15 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const ChainType chain)
 {
     switch (chain) {
+    // VALIDITY-PORT: RPC ports from validity-ref
     case ChainType::MAIN:
-        return std::make_unique<CBaseChainParams>("", 15715, 15717);
+        return std::make_unique<CBaseChainParams>("", 27914, 27916);
     case ChainType::TESTNET:
-        return std::make_unique<CBaseChainParams>("testnet", 25715, 25717);
+        return std::make_unique<CBaseChainParams>("testnet", 47993, 47995);
     case ChainType::SIGNET:
         return std::make_unique<CBaseChainParams>("signet", 45715, 45717);
     case ChainType::REGTEST:
-        return std::make_unique<CBaseChainParams>("regtest", 35715, 35717);
+        return std::make_unique<CBaseChainParams>("regtest", 18332, 18334);
     }
     assert(false);
 }

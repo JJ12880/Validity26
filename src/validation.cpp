@@ -146,7 +146,8 @@ int64_t FutureDrift(Chainstate& active_chainstate, int64_t nTime)
     if (Params().GetConsensus().fPowNoRetargeting && active_chainstate.m_chain.Height() <= Params().GetConsensus().nLastPOWBlock) {
         return nTime + 24 * 60 * 60;
     }
-    return Params().GetConsensus().IsProtocolV2(nTime) ? nTime + 15 : nTime + 10 * 60;
+    // VALIDITY-PORT: Validity uses 2 min future drift for V2 (vs BlackCoin's 15 sec)
+    return Params().GetConsensus().IsProtocolV2(nTime) ? nTime + 2 * 60 : nTime + 10 * 60;
 }
 
 bool CheckFinalTxAtTip(const CBlockIndex& active_chain_tip, const CTransaction& tx)
@@ -1646,23 +1647,186 @@ PackageMempoolAcceptResult ProcessNewPackage(Chainstate& active_chainstate, CTxM
     return result;
 }
 
+// VALIDITY-PORT: Dev fund subsidy schedule from validity-ref/src/main.cpp
+// Paid as a lump sum every nDevFundPaymentInterval blocks
+CAmount GetDevSubsidy(int nHeight, const Consensus::Params& consensusParams)
+{
+    if (!consensusParams.IsBlockDevFund(nHeight))
+        return 0;
+
+    CAmount nSubsidy = 0;
+    const int DEV_FUND_BLOCK_HEIGHT = consensusParams.nDevFundBlockHeight;
+    const CAmount nYear = 525600; // ~blocks per year
+
+    if (nHeight >= DEV_FUND_BLOCK_HEIGHT && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear) {
+        nSubsidy = 600 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 2) {
+        nSubsidy = 582 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 2 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 3) {
+        nSubsidy = 565 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 3 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 4) {
+        nSubsidy = 548 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 4 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 5) {
+        nSubsidy = 532 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 5 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 6) {
+        nSubsidy = 516 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 6 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 7) {
+        nSubsidy = 501 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 7 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 8) {
+        nSubsidy = 486 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 8 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 9) {
+        nSubsidy = 471 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 9 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 10) {
+        nSubsidy = 457 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 10 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 11) {
+        nSubsidy = 443 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 11 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 12) {
+        nSubsidy = 430 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 12 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 13) {
+        nSubsidy = 417 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 13 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 14) {
+        nSubsidy = 404 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 14 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 15) {
+        nSubsidy = 392 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 15 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 16) {
+        nSubsidy = 380 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 16 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 17) {
+        nSubsidy = 369 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 17 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 18) {
+        nSubsidy = 358 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 18 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 19) {
+        nSubsidy = 347 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 19 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 20) {
+        nSubsidy = 337 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 20 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 21) {
+        nSubsidy = 327 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 21 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 22) {
+        nSubsidy = 317 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 22 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 23) {
+        nSubsidy = 307 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 23 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 24) {
+        nSubsidy = 298 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 24 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 25) {
+        nSubsidy = 289 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 25 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 26) {
+        nSubsidy = 280 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 26 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 27) {
+        nSubsidy = 272 * COIN;
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 27 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 28) {
+        nSubsidy = 264 * COIN;
+    }
+    // After year 28: nSubsidy = 0 (hard cap)
+    return nSubsidy;
+}
+
+// VALIDITY-PORT: Extract dev fund payment from coinstake outputs
+static CAmount GetTxDevSubsidy(const std::vector<CTxOut>& vout, const Consensus::Params& consensusParams)
+{
+    if (vout.size() < 3 || consensusParams.sDevFundScript.empty())
+        return 0;
+    // Check if the third output (index 2) pays to the dev fund script
+    std::string scriptHex = HexStr(vout[2].scriptPubKey);
+    if (scriptHex == consensusParams.sDevFundScript)
+        return vout[2].nValue;
+    return 0;
+}
+
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams, bool fProofOfStake)
 {
     if (fProofOfStake)
-        return GetProofOfStakeSubsidy();
+        return GetProofOfStakeSubsidy(nHeight);
 
-    return GetProofOfWorkSubsidy();
+    return GetProofOfWorkSubsidy(nHeight);
 }
 
-// Blackcoin
-CAmount GetProofOfWorkSubsidy()
+// VALIDITY-PORT: Block reward schedule from validity-ref/src/main.cpp
+CAmount GetProofOfWorkSubsidy(int nHeight)
 {
-    return 10000 * COIN;
+    if (nHeight >= 1 && nHeight <= 20160)
+        return 50 * COIN;
+    return 0;
 }
 
-CAmount GetProofOfStakeSubsidy()
+// VALIDITY-PORT: Full PoS reward schedule from validity-ref
+CAmount GetProofOfStakeSubsidy(int nHeight)
 {
-    return COIN * 3 / 2;
+    CAmount nSubsidy = 5 * COIN;
+    static const int DEV_FUND_BLOCK_HEIGHT = 1655000;
+    static const CAmount nYear = 525600; // ~blocks per year
+
+    if (nHeight >= 0 && nHeight <= 2779) {
+        nSubsidy = 0;
+    } else if (nHeight >= 2880 && nHeight <= 30240) {
+        nSubsidy = 25 * COIN;
+    } else if (nHeight >= 30241 && nHeight <= 337999) {
+        nSubsidy = 5 * COIN;
+    } else if (nHeight >= 338000 && nHeight <= 339439) {
+        nSubsidy = 45000000; // 4.5 * COIN
+    } else if (nHeight >= 339440 && nHeight <= 340879) {
+        nSubsidy = 4 * COIN;
+    } else if (nHeight >= 340880 && nHeight <= 342319) {
+        nSubsidy = 35000000; // 3.5 * COIN
+    } else if (nHeight >= 342320 && nHeight <= 343759) {
+        nSubsidy = 3 * COIN;
+    } else if (nHeight >= 343760 && nHeight <= 345199) {
+        nSubsidy = 25000000; // 2.5 * COIN
+    } else if (nHeight >= 345200 && nHeight <= 346639) {
+        nSubsidy = 2 * COIN;
+    } else if (nHeight >= 346640 && nHeight <= 348079) {
+        nSubsidy = 15000000; // 1.5 * COIN
+    } else if (nHeight >= 348080 && nHeight <= 874359) {
+        nSubsidy = 1 * COIN;
+    } else if (nHeight >= 874360 && nHeight <= 1133559) {
+        nSubsidy = 75000000; // 0.75 * COIN
+    } else if (nHeight >= 1133560 && nHeight <= 1392759) {
+        nSubsidy = 50000000; // 0.5 * COIN
+    } else if (nHeight >= 1392760 && nHeight < DEV_FUND_BLOCK_HEIGHT) {
+        nSubsidy = 25000000; // 0.25 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear) {
+        nSubsidy = 50000000; // 0.5 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 2) {
+        nSubsidy = 48500000; // 0.485 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 2 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 3) {
+        nSubsidy = 47000000; // 0.47 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 3 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 4) {
+        nSubsidy = 45600000; // 0.456 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 4 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 5) {
+        nSubsidy = 44200000; // 0.442 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 5 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 6) {
+        nSubsidy = 42900000; // 0.429 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 6 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 7) {
+        nSubsidy = 41600000; // 0.416 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 7 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 8) {
+        nSubsidy = 40400000; // 0.404 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 8 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 9) {
+        nSubsidy = 39200000; // 0.392 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 9 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 10) {
+        nSubsidy = 38000000; // 0.38 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 10 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 11) {
+        nSubsidy = 36900000; // 0.369 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 11 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 12) {
+        nSubsidy = 35800000; // 0.358 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 12 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 13) {
+        nSubsidy = 34700000; // 0.347 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 13 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 14) {
+        nSubsidy = 33700000; // 0.337 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 14 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 15) {
+        nSubsidy = 32700000; // 0.327 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 15 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 16) {
+        nSubsidy = 31700000; // 0.317 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 16 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 17) {
+        nSubsidy = 30700000; // 0.307 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 17 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 18) {
+        nSubsidy = 29800000; // 0.298 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 18 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 19) {
+        nSubsidy = 28900000; // 0.289 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 19 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 20) {
+        nSubsidy = 28000000; // 0.28 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 20) {
+        nSubsidy = 27200000; // 0.272 * COIN (terminal rate)
+    }
+
+    return nSubsidy;
 }
 
 CoinsViews::CoinsViews(DBParams db_params, CoinsViewOptions options)
@@ -2395,6 +2559,16 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
         if (nActualStakeReward > blockReward) {
             LogPrintf("ERROR: ConnectBlock(): coinstake pays too much (actual=%d vs limit=%d)\n", nActualStakeReward, blockReward);
             return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cs-amount");
+        }
+
+        // VALIDITY-PORT: Mandatory dev fund payment validation
+        if (params.GetConsensus().IsBlockDevFund(pindex->nHeight)) {
+            CAmount nExpectedDevSubsidy = GetDevSubsidy(pindex->nHeight, params.GetConsensus());
+            CAmount nActualDevSubsidy = GetTxDevSubsidy(block.vtx[1]->vout, params.GetConsensus());
+            if (nActualDevSubsidy != nExpectedDevSubsidy) {
+                LogPrintf("ERROR: ConnectBlock(): dev fund pays incorrect amount (actual=%d vs expected=%d)\n", nActualDevSubsidy, nExpectedDevSubsidy);
+                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-devfund-amount");
+            }
         }
     }
 

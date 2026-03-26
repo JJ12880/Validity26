@@ -117,8 +117,11 @@ void StartScriptCheckWorkerThreads(int threads_num);
 void StopScriptCheckWorkerThreads();
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams, bool fProofOfStake = false);
-CAmount GetProofOfWorkSubsidy();
-CAmount GetProofOfStakeSubsidy();
+// VALIDITY-PORT: Height-dependent reward schedule
+CAmount GetProofOfWorkSubsidy(int nHeight = 0);
+CAmount GetProofOfStakeSubsidy(int nHeight = 0);
+// VALIDITY-PORT: Dev fund subsidy
+CAmount GetDevSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 bool FatalError(kernel::Notifications& notifications, BlockValidationState& state, const std::string& strMessage, const bilingual_str& userMessage = {});
 

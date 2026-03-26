@@ -115,13 +115,53 @@ struct Params {
     int64_t nProtocolV2Time;
     int64_t nProtocolV3Time;
     int64_t nProtocolV3_1Time;
+    // VALIDITY-PORT: Protocol checks adapted for Validity chain
     bool IsProtocolV1RetargetingFixed(int64_t nTime) const { return nTime > nProtocolV1RetargetingFixedTime && nTime != 1395631999; }
     bool IsProtocolV2(int64_t nTime) const { return nTime > nProtocolV2Time && nTime != 1407053678; }
     bool IsProtocolV3(int64_t nTime) const { return nTime > nProtocolV3Time && nTime != 1444028400; }
-    bool IsProtocolV3_1(int64_t nTime) const { return nTime > nProtocolV3_1Time && nTime != 1713938400; }
+    bool IsProtocolV3_1(int64_t nTime) const { return nTime > nProtocolV3_1Time; }
+
+    // VALIDITY-PORT: Dev fund constants from validity-ref/src/consensus/params.h
+    int nDevFundBlockHeight{std::numeric_limits<int>::max()};
+    int64_t nDevFundTime{std::numeric_limits<int64_t>::max()};
+    std::string sDevFundScript; // hex-encoded scriptPubKey for dev fund
+    int nDevFundPaymentInterval{10080}; // pay every ~10080 blocks (~1 week)
+
+    bool IsProtocolV4(int nHeight) const { return nHeight >= nDevFundBlockHeight; }
+    bool IsProtocolV4(int64_t nTime) const { return nTime >= nDevFundTime; }
+    bool IsBlockDevFund(int nHeight) const
+    {
+        if (IsProtocolV4(nHeight)) {
+            if (nHeight % nDevFundPaymentInterval == 0)
+                return true;
+        }
+        return false;
+    }
+
+    // VALIDITY-PORT: Height-dependent target spacing (57s post-V4, 60s pre-V4)
+    int64_t GetTargetSpacing(int nHeight) const { return IsProtocolV4(nHeight) ? 57 : 60; }
+
+    // VALIDITY-PORT: Height-dependent stake maturity
+    static const unsigned int nStakeMinConfirmationsV3 = 60;
+    static const unsigned int nStakeMinConfirmationsV4 = 120;
+    int nStakeMaturity(int nHeight) const
+    {
+        if (IsProtocolV4(nHeight))
+            return nStakeMinConfirmationsV4;
+        else
+            return nStakeMinConfirmationsV3;
+    }
+
+    // VALIDITY-PORT: FutureDrift helpers
+    inline int64_t FutureDriftV1(int64_t nTime) const { return nTime + 10 * 60; }
+    inline int64_t FutureDriftV2(int64_t nTime) const { return nTime + 2 * 60; }
+    inline int64_t FutureDrift(int64_t nTime) const { return IsProtocolV2(nTime) ? FutureDriftV2(nTime) : FutureDriftV1(nTime); }
+
     int nLastPOWBlock;
     int nStakeTimestampMask;
     int nCoinbaseMaturity;
+    // VALIDITY-PORT: Stake min age (time-based maturity for pre-V3)
+    unsigned int nStakeMinAge{0};
     /** The best chain should have at least this much work */
     uint256 nMinimumChainWork;
     /** By default assume that the signatures in ancestors of this block are valid */

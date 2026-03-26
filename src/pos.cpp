@@ -137,9 +137,10 @@ bool CheckProofOfStake(CBlockIndex* pindexPrev, const CTransaction& tx, unsigned
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-exist", strprintf("CheckProofOfStake() : Stake prevout does not exist %s", txin.prevout.hash.ToString()));
     }
 
-    // Min age requirement
-    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < Params().GetConsensus().nCoinbaseMaturity){
-        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-mature", strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", Params().GetConsensus().nCoinbaseMaturity, pindexPrev->nHeight + 1 - coinPrev.nHeight));
+    // VALIDITY-PORT: Height-dependent stake maturity check
+    int nRequiredMaturity = Params().GetConsensus().nStakeMaturity(pindexPrev->nHeight + 1);
+    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < nRequiredMaturity){
+        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-mature", strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", nRequiredMaturity, pindexPrev->nHeight + 1 - coinPrev.nHeight));
     }
 
     CBlockIndex* blockFrom = pindexPrev->GetAncestor(coinPrev.nHeight);
@@ -173,7 +174,8 @@ bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t nTime, co
             return false;
         }
 
-        if (pindexPrev->nHeight + 1 - coinPrev.nHeight < Params().GetConsensus().nCoinbaseMaturity) {
+        // VALIDITY-PORT: Height-dependent stake maturity
+        if (pindexPrev->nHeight + 1 - coinPrev.nHeight < Params().GetConsensus().nStakeMaturity(pindexPrev->nHeight + 1)) {
             return error("CheckKernel(): Coin is not mature");
         }
 
@@ -210,7 +212,8 @@ void CacheKernel(std::map<COutPoint, CStakeCache>& cache, const COutPoint& prevo
         return;
     }
 
-    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < Params().GetConsensus().nCoinbaseMaturity) {
+    // VALIDITY-PORT: Height-dependent stake maturity
+    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < Params().GetConsensus().nStakeMaturity(pindexPrev->nHeight + 1)) {
         return;
     }
 
