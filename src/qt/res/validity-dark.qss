@@ -552,6 +552,48 @@ QListView#listTransactions {
 }
 
 /* ============================================= */
+/* ===== STAKING PAGE                      ===== */
+/* ============================================= */
+
+QFrame#frameStakingStatus, QFrame#frameTileCoins, QFrame#frameTilePercent,
+QFrame#frameStakingReport {
+    background-color: #1e1e36;
+    border: 1px solid #2d2d4a;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+QLabel#labelStatusHeader, QLabel#labelReportHeader {
+    color: #c8c8d8;
+    font-size: 14px;
+}
+
+QLabel#labelStakingCoins, QLabel#labelNetworkShare {
+    color: #4ecca3;
+}
+
+QLabel#labelYourWeight, QLabel#labelNetworkWeight, QLabel#labelExpectedTime,
+QLabel#labelNetworkPercent {
+    color: #4ecca3;
+    font-weight: bold;
+}
+
+QPushButton#btnUnlockStaking {
+    background-color: #2a6b56;
+    color: #c8e8d8;
+    border: 1px solid #3a8b6e;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-weight: bold;
+    min-width: 200px;
+}
+
+QPushButton#btnUnlockStaking:hover {
+    background-color: #348868;
+    border-color: #4ecca3;
+}
+
+/* ============================================= */
 /* ===== SEND PAGE                         ===== */
 /* ============================================= */
 QLabel#labelCoinControlFeatures {

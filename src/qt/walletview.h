@@ -16,6 +16,7 @@ class PlatformStyle;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
 class SendCoinsRecipient;
+class StakingPage;
 class TransactionView;
 class WalletModel;
 class AddressBookPage;
@@ -66,6 +67,7 @@ private:
     AddressBookPage *usedReceivingAddressesPage;
 
     TransactionView *transactionView;
+    StakingPage *stakingPage;
 
     QProgressDialog* progressDialog{nullptr};
     const PlatformStyle *platformStyle;
@@ -75,6 +77,8 @@ public Q_SLOTS:
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch to staking page */
+    void gotoStakingPage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */

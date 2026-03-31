@@ -15,6 +15,7 @@
 #include <qt/sendcoinsdialog.h>
 #include <qt/signverifymessagedialog.h>
 #include <qt/transactiontablemodel.h>
+#include <qt/stakingpage.h>
 #include <qt/transactionview.h>
 #include <qt/walletmodel.h>
 
@@ -39,6 +40,8 @@ WalletView::WalletView(WalletModel* wallet_model, const PlatformStyle* _platform
     // Create tabs
     overviewPage = new OverviewPage(platformStyle);
     overviewPage->setWalletModel(walletModel);
+
+    // VALIDITY-PORT: Staking page setup is after addWidget below
 
     transactionsPage = new QWidget(this);
     QVBoxLayout *vbox = new QVBoxLayout();
@@ -69,10 +72,13 @@ WalletView::WalletView(WalletModel* wallet_model, const PlatformStyle* _platform
     usedReceivingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::ReceivingTab, this);
     usedReceivingAddressesPage->setModel(walletModel->getAddressTableModel());
 
+    stakingPage = new StakingPage(platformStyle);
+    stakingPage->setWalletModel(walletModel);
     addWidget(overviewPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
+    addWidget(stakingPage);
 
     connect(overviewPage, &OverviewPage::transactionClicked, this, &WalletView::transactionClicked);
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
@@ -119,6 +125,7 @@ void WalletView::setClientModel(ClientModel *_clientModel)
 
     overviewPage->setClientModel(_clientModel);
     sendCoinsPage->setClientModel(_clientModel);
+    stakingPage->setClientModel(_clientModel);
     walletModel->setClientModel(_clientModel);
 }
 
@@ -151,6 +158,11 @@ void WalletView::gotoOverviewPage()
 void WalletView::gotoHistoryPage()
 {
     setCurrentWidget(transactionsPage);
+}
+
+void WalletView::gotoStakingPage()
+{
+    setCurrentWidget(stakingPage);
 }
 
 void WalletView::gotoReceiveCoinsPage()

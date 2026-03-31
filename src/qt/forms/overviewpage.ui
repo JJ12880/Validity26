@@ -455,8 +455,10 @@
          </layout>
         </widget>
        </item>
+       <!-- Staking report moved to Staking tab -->
        <item>
         <widget class="QFrame" name="frameStakingReport">
+         <property name="visible"><bool>false</bool></property>
          <property name="frameShape">
           <enum>QFrame::StyledPanel</enum>
          </property>
