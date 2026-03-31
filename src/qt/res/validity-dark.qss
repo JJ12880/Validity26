@@ -349,15 +349,17 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
 QProgressBar {
     background-color: #12121f;
     border: 1px solid #2d2d4a;
-    border-radius: 4px;
+    border-radius: 6px;
     text-align: center;
     color: #c8c8d8;
-    min-height: 14px;
+    font-size: 11px;
+    min-height: 18px;
+    min-width: 200px;
 }
 
 QProgressBar::chunk {
-    background-color: #4ecca3;
-    border-radius: 3px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3aad87, stop:1 #4ecca3);
+    border-radius: 5px;
 }
 
 /* === TAB WIDGET (Debug window etc) === */
@@ -390,10 +392,11 @@ QTabBar::tab:hover {
 /* === STATUS BAR === */
 QStatusBar {
     background-color: #0f0f1a;
-    color: #7a7a96;
+    color: #a0a0b8;
     border-top: 1px solid #2d2d4a;
-    padding: 3px;
-    min-height: 22px;
+    padding: 4px 8px;
+    min-height: 28px;
+    font-size: 12px;
 }
 
 QStatusBar::item {
@@ -401,13 +404,16 @@ QStatusBar::item {
 }
 
 QStatusBar QLabel {
-    color: #7a7a96;
-    padding: 0 6px;
+    color: #a0a0b8;
+    padding: 0 8px;
+    font-size: 12px;
 }
 
 QStatusBar QProgressBar {
-    min-width: 140px;
-    max-height: 12px;
+    min-width: 220px;
+    min-height: 18px;
+    max-height: 18px;
+    font-size: 11px;
 }
 
 /* === TOOLTIPS === */
