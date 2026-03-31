@@ -292,7 +292,9 @@ void OverviewPage::setWalletModel(WalletModel *model)
         // Set up transaction list
         filter.reset(new TransactionFilterProxy());
         filter->setSourceModel(model->getTransactionTableModel());
-        filter->setDynamicSortFilter(true);
+        // VALIDITY-PORT: Disable dynamic re-sort on dataChanged to prevent O(N) work per block.
+        // The overview only shows 5 most recent — sort order doesn't change with confirmations.
+        filter->setDynamicSortFilter(false);
         filter->setSortRole(Qt::EditRole);
         filter->setShowInactive(false);
         filter->sort(TransactionTableModel::Date, Qt::DescendingOrder);
@@ -332,11 +334,16 @@ void OverviewPage::changeEvent(QEvent* e)
     QWidget::changeEvent(e);
 }
 
-// Only show most recent NUM_ITEMS rows
+// VALIDITY-PORT: Only show most recent NUM_ITEMS rows.
+// Optimized to avoid O(N) loop over all rows — only touch the boundary.
 void OverviewPage::LimitTransactionRows()
 {
     if (filter && ui->listTransactions && ui->listTransactions->model() && filter.get() == ui->listTransactions->model()) {
-        for (int i = 0; i < filter->rowCount(); ++i) {
+        int nRows = filter->rowCount();
+        // Only need to show first NUM_ITEMS and hide the one right after (if any).
+        // Qt's default is visible, so newly inserted rows at the top are already visible.
+        // We just need to hide row NUM_ITEMS when it appears.
+        for (int i = 0; i < std::min(nRows, NUM_ITEMS + 2); ++i) {
             ui->listTransactions->setRowHidden(i, i >= NUM_ITEMS);
         }
     }

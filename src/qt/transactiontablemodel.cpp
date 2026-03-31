@@ -289,12 +289,16 @@ void TransactionTableModel::updateTransaction(const QString &hash, int status, b
 
 void TransactionTableModel::updateConfirmations()
 {
-    // Blocks came in since last poll.
-    // Invalidate status (number of confirmations) and (possibly) description
-    //  for all rows. Qt is smart enough to only actually request the data for the
-    //  visible rows.
-    Q_EMIT dataChanged(index(0, Status), index(priv->size()-1, Status));
-    Q_EMIT dataChanged(index(0, ToAddress), index(priv->size()-1, ToAddress));
+    // VALIDITY-PORT: Only invalidate rows that could actually change (recent transactions).
+    // Deeply confirmed transactions (>120 confirmations) will never change status.
+    // This avoids O(N) re-filter/re-sort on every block for large wallets.
+    int nRows = priv->size();
+    if (nRows == 0) return;
+
+    // Only update the most recent 50 rows — covers all unconfirmed/recently confirmed txs.
+    // Transactions are sorted newest-first, so row 0 is the most recent.
+    int nUpdateRows = std::min(nRows, 50);
+    Q_EMIT dataChanged(index(0, Status), index(nUpdateRows - 1, ToAddress));
 }
 
 int TransactionTableModel::rowCount(const QModelIndex &parent) const
