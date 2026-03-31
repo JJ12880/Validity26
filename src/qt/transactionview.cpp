@@ -161,7 +161,10 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
         transactionView->setColumnWidth(TransactionTableModel::Type, TYPE_COLUMN_WIDTH);
         transactionView->setColumnWidth(TransactionTableModel::Amount, AMOUNT_MINIMUM_COLUMN_WIDTH);
         transactionView->horizontalHeader()->setMinimumSectionSize(MINIMUM_COLUMN_WIDTH);
-        transactionView->horizontalHeader()->setStretchLastSection(true);
+        // VALIDITY-PORT: Stretch Label column (index 4) instead of Amount (last column)
+        // This gives Label the most space and keeps Amount at a fixed reasonable width
+        transactionView->horizontalHeader()->setStretchLastSection(false);
+        transactionView->horizontalHeader()->setSectionResizeMode(TransactionTableModel::ToAddress, QHeaderView::Stretch);
     }
 
     contextMenu = new QMenu(this);
