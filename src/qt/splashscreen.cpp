@@ -60,12 +60,12 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     pixmap.setDevicePixelRatio(devicePixelRatio);
 
     QPainter pixPaint(&pixmap);
-    pixPaint.setPen(QColor(200,200,200));
+    pixPaint.setPen(QColor(200,200,216));
 
     // VALIDITY-PORT: Dark splash screen
     QRadialGradient gradient(QPoint(0,0), splashSize.width()/devicePixelRatio);
-    gradient.setColorAt(0, QColor(26,26,46));
-    gradient.setColorAt(1, QColor(15,15,35));
+    gradient.setColorAt(0, QColor(23,23,40));
+    gradient.setColorAt(1, QColor(15,15,26));
     QRect rGradient(QPoint(0,0), splashSize);
     pixPaint.fillRect(rGradient, gradient);
 
@@ -88,10 +88,10 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     pixPaint.setFont(QFont(font, 33*fontFactor));
     fm = pixPaint.fontMetrics();
     titleTextWidth  = GUIUtil::TextWidth(fm, titleText);
-    pixPaint.setPen(QColor(255,255,255));
+    pixPaint.setPen(QColor(200,200,216));
     pixPaint.drawText(pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight+2,paddingTop,titleText);
 
-    pixPaint.setPen(QColor(0,200,83));  // VALIDITY-PORT: Green version text
+    pixPaint.setPen(QColor(78,204,163));  // VALIDITY-PORT: Teal version text
     pixPaint.setFont(QFont(font, 15*fontFactor));
 
     // if the version string is too long, reduce size

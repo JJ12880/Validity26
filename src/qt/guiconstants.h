@@ -27,17 +27,17 @@ static const bool DEFAULT_SPLASHSCREEN = true;
 /* Invalid field background style */
 #define STYLE_INVALID "background:#FF4444; border: 1px solid #FF0000; border-radius: 4px;"
 
-/* VALIDITY-PORT: Dark theme colors */
+/* VALIDITY-PORT: Dark theme colors — refined v2 */
 /* Transaction list -- unconfirmed transaction */
-#define COLOR_UNCONFIRMED QColor(136, 136, 170)
+#define COLOR_UNCONFIRMED QColor(122, 122, 150)
 /* Transaction list -- negative amount */
-#define COLOR_NEGATIVE QColor(255, 82, 82)
+#define COLOR_NEGATIVE QColor(232, 93, 117)
 /* Transaction list -- bare address (without label) */
-#define COLOR_BAREADDRESS QColor(136, 136, 170)
+#define COLOR_BAREADDRESS QColor(122, 122, 150)
 /* Transaction list -- TX status decoration - danger, tx needs attention */
-#define COLOR_TX_STATUS_DANGER QColor(255, 82, 82)
+#define COLOR_TX_STATUS_DANGER QColor(232, 93, 117)
 /* Transaction list -- TX status decoration - default color */
-#define COLOR_BLACK QColor(224, 224, 224)
+#define COLOR_BLACK QColor(200, 200, 216)
 
 /* Tooltips longer than this (in characters) are converted into rich text,
    so that they can be word-wrapped.

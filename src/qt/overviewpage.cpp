@@ -81,7 +81,7 @@ public:
         QRect addrPartRect(addressRect.left(), addressRect.top(), addressRect.width() - amountWidth, addressRect.height());
         QRect amtPartRect(addressRect.left() + addressRect.width() - amountWidth, addressRect.top(), amountWidth, addressRect.height());
 
-        painter->setPen(QColor(136, 136, 170));
+        painter->setPen(QColor(122, 122, 150)); // Muted for address
         QRect boundingRect;
         // Elide long addresses
         QString elidedAddr = painter->fontMetrics().elidedText(address, Qt::ElideMiddle, addrPartRect.width());
@@ -97,8 +97,8 @@ public:
         }
         else
         {
-            // VALIDITY-PORT: Green for positive amounts in dark theme
-            foreground = QColor(0, 200, 83);
+            // VALIDITY-PORT: Muted teal for positive amounts
+            foreground = QColor(78, 204, 163);
         }
         painter->setPen(foreground);
         QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true, BitcoinUnits::SeparatorStyle::ALWAYS);
@@ -108,7 +108,7 @@ public:
         }
 
         // VALIDITY-PORT: Draw date (left) and amount (right) on top line
-        painter->setPen(QColor(200, 200, 220)); // Light gray for date
+        painter->setPen(QColor(200, 200, 216)); // Warm gray for date
         QRect date_bounding_rect;
         QString dateStr = GUIUtil::dateTimeStr(date);
         painter->drawText(amountRect, Qt::AlignLeft | Qt::AlignVCenter, dateStr, &date_bounding_rect);

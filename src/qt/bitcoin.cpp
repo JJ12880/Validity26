@@ -550,21 +550,21 @@ int GuiMain(int argc, char* argv[])
 
     // VALIDITY-PORT: Load dark theme
     {
-        // Set dark palette first
+        // VALIDITY-PORT: Refined dark palette — softer, less harsh
         QPalette darkPalette;
-        darkPalette.setColor(QPalette::Window, QColor(26, 26, 46));
-        darkPalette.setColor(QPalette::WindowText, QColor(224, 224, 224));
-        darkPalette.setColor(QPalette::Base, QColor(15, 15, 35));
-        darkPalette.setColor(QPalette::AlternateBase, QColor(22, 33, 62));
-        darkPalette.setColor(QPalette::ToolTipBase, QColor(22, 33, 62));
-        darkPalette.setColor(QPalette::ToolTipText, QColor(224, 224, 224));
-        darkPalette.setColor(QPalette::Text, QColor(224, 224, 224));
-        darkPalette.setColor(QPalette::Button, QColor(22, 33, 62));
-        darkPalette.setColor(QPalette::ButtonText, QColor(224, 224, 224));
-        darkPalette.setColor(QPalette::BrightText, QColor(0, 200, 83));
-        darkPalette.setColor(QPalette::Link, QColor(0, 200, 83));
-        darkPalette.setColor(QPalette::Highlight, QColor(0, 200, 83));
-        darkPalette.setColor(QPalette::HighlightedText, QColor(15, 15, 35));
+        darkPalette.setColor(QPalette::Window, QColor(23, 23, 40));       // #171728
+        darkPalette.setColor(QPalette::WindowText, QColor(200, 200, 216)); // #c8c8d8
+        darkPalette.setColor(QPalette::Base, QColor(18, 18, 31));          // #12121f
+        darkPalette.setColor(QPalette::AlternateBase, QColor(30, 30, 54)); // #1e1e36
+        darkPalette.setColor(QPalette::ToolTipBase, QColor(30, 30, 54));
+        darkPalette.setColor(QPalette::ToolTipText, QColor(200, 200, 216));
+        darkPalette.setColor(QPalette::Text, QColor(200, 200, 216));
+        darkPalette.setColor(QPalette::Button, QColor(45, 59, 82));        // #2d3b52
+        darkPalette.setColor(QPalette::ButtonText, QColor(200, 200, 216));
+        darkPalette.setColor(QPalette::BrightText, QColor(78, 204, 163));  // #4ecca3
+        darkPalette.setColor(QPalette::Link, QColor(78, 204, 163));
+        darkPalette.setColor(QPalette::Highlight, QColor(78, 204, 163));
+        darkPalette.setColor(QPalette::HighlightedText, QColor(15, 15, 26));
         app.setPalette(darkPalette);
 
         // Load stylesheet on top

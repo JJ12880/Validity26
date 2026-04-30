@@ -20,7 +20,7 @@
       <bool>false</bool>
      </property>
      <property name="styleSheet">
-      <string notr="true">QLabel { background-color: #2a2a4a; color: #FFA726; border: 1px solid #FFA726; border-radius: 6px; padding: 8px; }</string>
+      <string notr="true">QLabel { background-color: #2d2d4a; color: #e8a84e; border: 1px solid #3d3d5a; border-radius: 5px; padding: 7px; }</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
