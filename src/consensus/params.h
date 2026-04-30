@@ -116,10 +116,16 @@ struct Params {
     int64_t nProtocolV2Time;
     int64_t nProtocolV3Time;
     int64_t nProtocolV3_1Time;
-    // VALIDITY-PORT: Protocol checks adapted for Validity chain
-    bool IsProtocolV1RetargetingFixed(int64_t nTime) const { return nTime > nProtocolV1RetargetingFixedTime && nTime != 1395631999; }
-    bool IsProtocolV2(int64_t nTime) const { return nTime > nProtocolV2Time && nTime != 1407053678; }
-    bool IsProtocolV3(int64_t nTime) const { return nTime > nProtocolV3Time && nTime != 1444028400; }
+    // VALIDITY-PORT: Protocol activation checks. These used to carry BlackCoin's
+    // historical exclusion timestamps (nTime != 1395631999 / 1407053678 / 1444028400)
+    // as workarounds for specific BlackCoin-chain blocks. Those exclusions are dead
+    // code on Validity: the magic timestamps (Mar 2014 / Aug 2014 / Oct 2015) are
+    // all before Validity's genesis time (1431857735 = May 2015), so no Validity
+    // block can match them. Removed to make the logic explicit and prevent future
+    // maintainers from assuming the exclusions serve a purpose they don't.
+    bool IsProtocolV1RetargetingFixed(int64_t nTime) const { return nTime > nProtocolV1RetargetingFixedTime; }
+    bool IsProtocolV2(int64_t nTime) const { return nTime > nProtocolV2Time; }
+    bool IsProtocolV3(int64_t nTime) const { return nTime > nProtocolV3Time; }
     bool IsProtocolV3_1(int64_t nTime) const { return nTime > nProtocolV3_1Time; }
 
     // VALIDITY-PORT: Dev fund constants from validity-ref/src/consensus/params.h
