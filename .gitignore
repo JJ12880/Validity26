@@ -185,3 +185,4 @@ db62/
 
 # VSCode
 .vscode/*
+src/qt/libsqlite3-0.dll
