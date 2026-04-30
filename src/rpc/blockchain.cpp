@@ -793,6 +793,201 @@ static RPCHelpMan getblock()
     };
 }
 
+static RPCHelpMan getblockbynumber()
+{
+    return RPCHelpMan{"getblockbynumber",
+                "\nReturns block data at the given height.\n"
+                "This is a convenience wrapper that combines getblockhash and getblock.\n"
+                "If verbosity is 0, returns hex-encoded block data.\n"
+                "If verbosity is 1, returns a JSON object with block info and transaction ids.\n"
+                "If verbosity is 2, returns a JSON object with block info and full transaction data.\n"
+                "If verbosity is 3, returns a JSON object with block info, full transaction data, and prevout info for inputs.\n",
+                {
+                    {"height", RPCArg::Type::STR, RPCArg::Optional::NO, "The block height (passed as string)"},
+                    {"verbosity", RPCArg::Type::NUM, RPCArg::Default{1}, "0 for hex-encoded data, 1 for JSON object, 2 for JSON with tx data, 3 for JSON with tx data and prevout"},
+                },
+                {
+                    RPCResult{"for verbosity = 0",
+                RPCResult::Type::STR_HEX, "", "A string that is serialized, hex-encoded data for the block"},
+                    RPCResult{"for verbosity = 1",
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR_HEX, "hash", "the block hash"},
+                    {RPCResult::Type::NUM, "confirmations", "The number of confirmations, or -1 if the block is not on the main chain"},
+                    {RPCResult::Type::NUM, "size", "The block size"},
+                    {RPCResult::Type::NUM, "height", "The block height or index"},
+                    {RPCResult::Type::NUM, "version", "The block version"},
+                    {RPCResult::Type::STR_HEX, "merkleroot", "The merkle root"},
+                    {RPCResult::Type::ARR, "tx", "The transaction ids",
+                        {{RPCResult::Type::STR_HEX, "", "The transaction id"}}},
+                    {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
+                    {RPCResult::Type::NUM, "nonce", "The nonce"},
+                    {RPCResult::Type::STR_HEX, "bits", "The bits"},
+                    {RPCResult::Type::NUM, "difficulty", "The difficulty"},
+                    {RPCResult::Type::STR_HEX, "previousblockhash", /*optional=*/true, "The hash of the previous block"},
+                    {RPCResult::Type::STR_HEX, "nextblockhash", /*optional=*/true, "The hash of the next block"},
+                }},
+                    RPCResult{"for verbosity = 2",
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::ELISION, "", "Same output as verbosity = 1"},
+                    {RPCResult::Type::ARR, "tx", "",
+                    {
+                        {RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::ELISION, "", "Full transaction data in getrawtransaction format"},
+                        }},
+                    }},
+                }},
+                    RPCResult{"for verbosity = 3",
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::ELISION, "", "Same output as verbosity = 2 plus prevout info on each vin"},
+                }},
+        },
+                RPCExamples{
+                    HelpExampleCli("getblockbynumber", "\"1000\"")
+            + HelpExampleCli("getblockbynumber", "\"1000\" 2")
+            + HelpExampleRpc("getblockbynumber", "\"1000\", 2")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
+    // Parse height from string parameter
+    int nHeight = LocaleIndependentAtoi<int>(request.params[0].get_str());
+
+    int verbosity = 1;
+    if (!request.params[1].isNull()) {
+        verbosity = request.params[1].getInt<int>();
+    }
+
+    const CBlockIndex* pblockindex;
+    const CBlockIndex* tip;
+    {
+        LOCK(cs_main);
+        const CChain& active_chain = chainman.ActiveChain();
+
+        if (nHeight < 0 || nHeight > active_chain.Height())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+        pblockindex = active_chain[nHeight];
+        tip = active_chain.Tip();
+    }
+
+    const CBlock block{GetBlockChecked(chainman.m_blockman, pblockindex)};
+
+    if (verbosity <= 0)
+    {
+        CDataStream ssBlock(SER_NETWORK);
+        ssBlock << RPCTxSerParams(block);
+        std::string strHex = HexStr(ssBlock);
+        return strHex;
+    }
+
+    TxVerbosity tx_verbosity;
+    if (verbosity == 1) {
+        tx_verbosity = TxVerbosity::SHOW_TXID;
+    } else if (verbosity == 2) {
+        tx_verbosity = TxVerbosity::SHOW_DETAILS;
+    } else {
+        tx_verbosity = TxVerbosity::SHOW_DETAILS_AND_PREVOUT;
+    }
+
+    return blockToJSON(chainman.m_blockman, block, tip, pblockindex, tx_verbosity);
+},
+    };
+}
+
+static RPCHelpMan getblockrange()
+{
+    return RPCHelpMan{"getblockrange",
+                "\nReturns an array of blocks starting at the given height.\n"
+                "Batch fetches multiple blocks in one RPC call to reduce HTTP round-trip overhead during sync.\n",
+                {
+                    {"start", RPCArg::Type::NUM, RPCArg::Optional::NO, "The starting block height"},
+                    {"count", RPCArg::Type::NUM, RPCArg::Default{1}, "Number of blocks to fetch (max 100)"},
+                    {"verbosity", RPCArg::Type::NUM, RPCArg::Default{1}, "0 for hex-encoded data, 1 for JSON object, 2 for JSON with tx data, 3 for JSON with tx data and prevout"},
+                },
+                RPCResult{
+                    RPCResult::Type::ARR, "", "",
+                    {
+                        {RPCResult::Type::OBJ, "", "Block object (format depends on verbosity, same as getblock)",
+                        {
+                            {RPCResult::Type::ELISION, "", ""},
+                        }},
+                    }
+                },
+                RPCExamples{
+                    HelpExampleCli("getblockrange", "1000 8")
+            + HelpExampleCli("getblockrange", "1000 4 3")
+            + HelpExampleRpc("getblockrange", "1000, 8, 1")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
+    int nStartHeight = request.params[0].getInt<int>();
+    int nCount = 1;
+    if (!request.params[1].isNull()) {
+        nCount = request.params[1].getInt<int>();
+    }
+    if (nCount < 1) nCount = 1;
+    if (nCount > 100) nCount = 100;
+
+    int verbosity = 1;
+    if (!request.params[2].isNull()) {
+        verbosity = request.params[2].getInt<int>();
+    }
+
+    TxVerbosity tx_verbosity;
+    if (verbosity == 1) {
+        tx_verbosity = TxVerbosity::SHOW_TXID;
+    } else if (verbosity == 2) {
+        tx_verbosity = TxVerbosity::SHOW_DETAILS;
+    } else if (verbosity >= 3) {
+        tx_verbosity = TxVerbosity::SHOW_DETAILS_AND_PREVOUT;
+    }
+
+    UniValue result(UniValue::VARR);
+
+    const CBlockIndex* tip;
+    {
+        LOCK(cs_main);
+        const CChain& active_chain = chainman.ActiveChain();
+        tip = active_chain.Tip();
+
+        if (nStartHeight < 0 || nStartHeight > active_chain.Height())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Start height out of range");
+
+        // Clamp count to available blocks
+        if (nStartHeight + nCount - 1 > active_chain.Height())
+            nCount = active_chain.Height() - nStartHeight + 1;
+    }
+
+    for (int i = 0; i < nCount; i++) {
+        const CBlockIndex* pblockindex;
+        {
+            LOCK(cs_main);
+            pblockindex = chainman.ActiveChain()[nStartHeight + i];
+        }
+
+        const CBlock block{GetBlockChecked(chainman.m_blockman, pblockindex)};
+
+        if (verbosity <= 0) {
+            CDataStream ssBlock(SER_NETWORK);
+            ssBlock << RPCTxSerParams(block);
+            result.push_back(HexStr(ssBlock));
+        } else {
+            result.push_back(blockToJSON(chainman.m_blockman, block, tip, pblockindex, tx_verbosity));
+        }
+    }
+
+    return result;
+},
+    };
+}
+
 CoinStatsHashType ParseHashType(const std::string& hash_type_input)
 {
     if (hash_type_input == "hash_serialized_3") {
@@ -2814,6 +3009,8 @@ void RegisterBlockchainRPCCommands(CRPCTable& t)
         {"blockchain", &getbestblockhash},
         {"blockchain", &getblockcount},
         {"blockchain", &getblock},
+        {"blockchain", &getblockbynumber},
+        {"blockchain", &getblockrange},
         {"blockchain", &getblockfrompeer},
         {"blockchain", &getblockhash},
         {"blockchain", &getblockheader},

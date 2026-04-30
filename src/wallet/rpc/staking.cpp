@@ -8,11 +8,16 @@
 #include <rpc/server_util.h>
 #include <wallet/rpc/util.h>
 #include <wallet/rpc/staking.h>
+#include <wallet/receive.h>
 #include <wallet/wallet.h>
 #include <node/context.h>
 #include <node/miner.h>
+#include <net.h>
+#include <net_processing.h>
 #include <key_io.h> // For EncodeDestination
 #include <pow.h> // For GetNextTargetRequired
+#include <clientversion.h>
+#include <version.h>
 #include <warnings.h>
 
 #include <univalue.h>
@@ -360,6 +365,169 @@ static RPCHelpMan checkkernel()
     };
 }
 
+static RPCHelpMan getnodestate()
+{
+    return RPCHelpMan{"getnodestate",
+                "\nReturns combined node state in a single call.\n"
+                "Combines data from getblockchaininfo, getnetworkinfo, getwalletinfo, getstakinginfo,\n"
+                "peer count, and wallet lock status into one response.\n",
+                {},
+                RPCResult{
+                    RPCResult::Type::OBJ, "", "",
+                    {
+                        {RPCResult::Type::OBJ, "blockchain", "",
+                        {
+                            {RPCResult::Type::STR, "chain", "Current network name"},
+                            {RPCResult::Type::NUM, "blocks", "Current block height"},
+                            {RPCResult::Type::NUM, "headers", "Number of headers"},
+                            {RPCResult::Type::STR_HEX, "bestblockhash", "The hash of the best block"},
+                            {RPCResult::Type::NUM, "difficulty", "The current difficulty"},
+                            {RPCResult::Type::BOOL, "initialblockdownload", "Whether initial block download is in progress"},
+                        }},
+                        {RPCResult::Type::OBJ, "network", "",
+                        {
+                            {RPCResult::Type::NUM, "version", "The server version"},
+                            {RPCResult::Type::NUM, "protocolversion", "The protocol version"},
+                            {RPCResult::Type::NUM, "connections", "Total connections"},
+                            {RPCResult::Type::NUM, "connections_in", "Inbound connections"},
+                            {RPCResult::Type::NUM, "connections_out", "Outbound connections"},
+                        }},
+                        {RPCResult::Type::OBJ, "wallet", "",
+                        {
+                            {RPCResult::Type::STR, "name", "Wallet name"},
+                            {RPCResult::Type::STR_AMOUNT, "balance", "Confirmed balance"},
+                            {RPCResult::Type::STR_AMOUNT, "unconfirmed_balance", "Unconfirmed balance"},
+                            {RPCResult::Type::STR_AMOUNT, "immature_balance", "Immature balance"},
+                            {RPCResult::Type::STR_AMOUNT, "stake", "Staking balance"},
+                            {RPCResult::Type::NUM, "txcount", "Total number of transactions"},
+                            {RPCResult::Type::BOOL, "locked", "Whether the wallet is locked"},
+                        }},
+                        {RPCResult::Type::OBJ, "staking", "",
+                        {
+                            {RPCResult::Type::BOOL, "enabled", "Whether staking is enabled"},
+                            {RPCResult::Type::BOOL, "staking", "Whether actively staking"},
+                            {RPCResult::Type::NUM, "weight", "Staking weight"},
+                            {RPCResult::Type::NUM, "netstakeweight", "Network stake weight"},
+                            {RPCResult::Type::NUM, "expectedtime", "Expected time to earn reward"},
+                            {RPCResult::Type::NUM, "difficulty", "Staking difficulty"},
+                        }},
+                    }
+                },
+                RPCExamples{
+                    HelpExampleCli("getnodestate", "")
+            + HelpExampleRpc("getnodestate", "")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    ChainstateManager& chainman = pwallet->chain().chainman();
+    const CTxMemPool& mempool = pwallet->chain().mempool();
+
+    UniValue result(UniValue::VOBJ);
+
+    // --- Blockchain info ---
+    UniValue blockchain(UniValue::VOBJ);
+    {
+        LOCK(cs_main);
+        const CChain& active_chain = chainman.ActiveChain();
+        const CBlockIndex* tip = active_chain.Tip();
+
+        blockchain.pushKV("chain", chainman.GetParams().GetChainTypeString());
+        blockchain.pushKV("blocks", active_chain.Height());
+        blockchain.pushKV("headers", chainman.m_best_header ? chainman.m_best_header->nHeight : -1);
+        blockchain.pushKV("bestblockhash", tip ? tip->GetBlockHash().GetHex() : "");
+        blockchain.pushKV("difficulty", GetDifficulty(GetLastBlockIndex(tip, false)));
+        blockchain.pushKV("initialblockdownload", chainman.IsInitialBlockDownload());
+    }
+    result.pushKV("blockchain", blockchain);
+
+    // --- Network info ---
+    UniValue network(UniValue::VOBJ);
+    network.pushKV("version", CLIENT_VERSION);
+    network.pushKV("protocolversion", PROTOCOL_VERSION);
+    {
+        size_t nTotal = pwallet->chain().getNodeCount(ConnectionDirection::Both);
+        size_t nIn = pwallet->chain().getNodeCount(ConnectionDirection::In);
+        size_t nOut = pwallet->chain().getNodeCount(ConnectionDirection::Out);
+        network.pushKV("connections", (int)nTotal);
+        network.pushKV("connections_in", (int)nIn);
+        network.pushKV("connections_out", (int)nOut);
+    }
+    result.pushKV("network", network);
+
+    // --- Wallet info ---
+    UniValue wallet(UniValue::VOBJ);
+    {
+        LOCK(pwallet->cs_wallet);
+        wallet.pushKV("name", pwallet->GetName());
+        const auto bal = GetBalance(*pwallet);
+        wallet.pushKV("balance", ValueFromAmount(bal.m_mine_trusted));
+        wallet.pushKV("unconfirmed_balance", ValueFromAmount(bal.m_mine_untrusted_pending));
+        wallet.pushKV("immature_balance", ValueFromAmount(bal.m_mine_immature));
+        wallet.pushKV("stake", ValueFromAmount(bal.m_mine_stake));
+        wallet.pushKV("txcount", (int)pwallet->mapWallet.size());
+        wallet.pushKV("locked", pwallet->IsCrypted() && pwallet->IsLocked());
+    }
+    result.pushKV("wallet", wallet);
+
+    // --- Staking info ---
+    UniValue stakingObj(UniValue::VOBJ);
+    {
+        uint64_t nWeight = 0;
+        uint64_t lastCoinStakeSearchInterval = 0;
+        {
+            LOCK(pwallet->cs_wallet);
+            nWeight = pwallet->GetStakeWeight();
+            lastCoinStakeSearchInterval = pwallet->m_enabled_staking ? pwallet->m_last_coin_stake_search_interval : 0;
+        }
+
+        LOCK(cs_main);
+        uint64_t nNetworkWeight = 1.1429 * GetPoSKernelPS(chainman);
+        bool fStaking = lastCoinStakeSearchInterval && nWeight;
+
+        const Consensus::Params& consensusParams = Params().GetConsensus();
+        int64_t nTargetSpacing = consensusParams.nTargetSpacing;
+        uint64_t nExpectedTime = fStaking ? 1.0455 * nTargetSpacing * nNetworkWeight / nWeight : 0;
+
+        stakingObj.pushKV("enabled", pwallet->m_enabled_staking.load());
+        stakingObj.pushKV("staking", fStaking);
+        stakingObj.pushKV("weight", (uint64_t)nWeight);
+        stakingObj.pushKV("netstakeweight", (uint64_t)nNetworkWeight);
+        stakingObj.pushKV("expectedtime", nExpectedTime);
+        stakingObj.pushKV("difficulty", GetDifficulty(GetLastBlockIndex(chainman.m_best_header, true)));
+    }
+    result.pushKV("staking", stakingObj);
+
+    return result;
+},
+    };
+}
+
+static RPCHelpMan iswalletlocked()
+{
+    return RPCHelpMan{"iswalletlocked",
+                "\nReturns whether the wallet is locked.\n",
+                {},
+                RPCResult{
+                    RPCResult::Type::BOOL, "", "true if the wallet is locked, false otherwise"
+                },
+                RPCExamples{
+                    HelpExampleCli("iswalletlocked", "")
+            + HelpExampleRpc("iswalletlocked", "")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    LOCK(pwallet->cs_wallet);
+    return pwallet->IsCrypted() && pwallet->IsLocked();
+},
+    };
+}
+
 Span<const CRPCCommand> GetStakingRPCCommands()
 {
 // clang-format off
@@ -370,6 +538,8 @@ static const CRPCCommand commands[] =
     { "staking",            &reservebalance,                 },
     { "staking",            &staking,                        },
     { "staking",            &checkkernel,                    },
+    { "staking",            &getnodestate,                   },
+    { "staking",            &iswalletlocked,                 },
 };
 // clang-format on
     return commands;
