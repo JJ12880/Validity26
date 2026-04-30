@@ -6,129 +6,117 @@
    <rect><x>0</x><y>0</y><width>800</width><height>600</height></rect>
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
-   <property name="spacing"><number>12</number></property>
-   <property name="leftMargin"><number>16</number></property>
-   <property name="topMargin"><number>12</number></property>
-   <property name="rightMargin"><number>16</number></property>
-   <property name="bottomMargin"><number>12</number></property>
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>4</number></property>
+   <property name="topMargin"><number>8</number></property>
+   <property name="rightMargin"><number>4</number></property>
+   <property name="bottomMargin"><number>4</number></property>
 
-   <!-- Staking Status Card -->
+   <!-- Top Row: Status + Net Staking/Supply -->
    <item>
-    <widget class="QFrame" name="frameStakingStatus">
-     <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
-     <layout class="QVBoxLayout" name="layoutStatus">
-      <item>
-       <layout class="QHBoxLayout" name="layoutStatusHeader">
-        <item>
-         <widget class="QLabel" name="labelStatusHeader">
-          <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string>Staking Status</string></property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="spacerStatusHeader">
-          <property name="orientation"><enum>Qt::Horizontal</enum></property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="labelStakingActive">
-          <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string>Inactive</string></property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QGridLayout" name="gridStatus">
-        <property name="spacing"><number>10</number></property>
-        <item row="0" column="0">
-         <widget class="QLabel"><property name="text"><string>Your Weight:</string></property></widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="labelYourWeight">
-          <property name="text"><string notr="true">0</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLabel"><property name="text"><string>Network Weight:</string></property></widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QLabel" name="labelNetworkWeight">
-          <property name="text"><string notr="true">0</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel"><property name="text"><string>Expected Time:</string></property></widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="labelExpectedTime">
-          <property name="text"><string notr="true">—</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLabel"><property name="text"><string>Network %:</string></property></widget>
-        </item>
-        <item row="1" column="3">
-         <widget class="QLabel" name="labelNetworkPercent">
-          <property name="text"><string notr="true">0.00%</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btnUnlockStaking">
-        <property name="text"><string>Unlock Wallet for Staking</string></property>
-        <property name="visible"><bool>false</bool></property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-
-   <!-- Stat Tiles -->
-   <item>
-    <layout class="QHBoxLayout" name="layoutStatTiles">
+    <layout class="QHBoxLayout" name="layoutStatusRow">
      <item>
-      <widget class="QFrame" name="frameTileCoins">
+      <widget class="QFrame" name="frameStakingStatus">
        <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
-       <layout class="QVBoxLayout">
+       <layout class="QVBoxLayout" name="layoutStatus">
         <item>
-         <widget class="QLabel">
-          <property name="text"><string>Staking Coins</string></property>
-          <property name="alignment"><set>Qt::AlignCenter</set></property>
-         </widget>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QLabel" name="labelStatusHeader">
+            <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
+            <property name="text"><string>Staking Status:</string></property>
+           </widget>
+          </item>
+          <item>
+           <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelStakingActive">
+            <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
+            <property name="text"><string>Inactive</string></property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
-         <widget class="QLabel" name="labelStakingCoins">
-          <property name="font"><font><pointsize>18</pointsize><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignCenter</set></property>
-         </widget>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QLabel"><property name="text"><string>Your Weight:</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelYourWeight">
+            <property name="text"><string notr="true">0</string></property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QLabel"><property name="text"><string>Reserve Balance:</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelReserveBalance">
+            <property name="text"><string notr="true">0.00 VAL</string></property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QPushButton" name="btnUnlockStaking">
+            <property name="text"><string>Unlock Wallet for Staking</string></property>
+            <property name="visible"><bool>false</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnStopStaking">
+            <property name="text"><string>Stop Staking</string></property>
+            <property name="visible"><bool>false</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnSetReserve">
+            <property name="text"><string>Set Reserve</string></property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>
      </item>
      <item>
-      <widget class="QFrame" name="frameTilePercent">
+      <widget class="QFrame" name="frameGaugeWeight">
        <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
-       <layout class="QVBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text"><string>Network Share</string></property>
-          <property name="alignment"><set>Qt::AlignCenter</set></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="labelNetworkShare">
-          <property name="font"><font><pointsize>18</pointsize><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string notr="true">0.00%</string></property>
-          <property name="alignment"><set>Qt::AlignCenter</set></property>
-         </widget>
-        </item>
+       <layout class="QVBoxLayout" name="layoutGaugeWeight">
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Gauge Row: Network Share | Next Stake | APR -->
+   <item>
+    <layout class="QHBoxLayout" name="layoutStatTiles">
+     <item>
+      <widget class="QFrame" name="frameGaugeShare">
+       <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+       <layout class="QVBoxLayout" name="layoutGaugeShare">
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="frameStakeTimer">
+       <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+       <layout class="QVBoxLayout" name="layoutStakeTimer">
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="frameGaugeAPR">
+       <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+       <layout class="QVBoxLayout" name="layoutGaugeAPR">
        </layout>
       </widget>
      </item>
@@ -139,6 +127,7 @@
    <item>
     <widget class="QFrame" name="frameStakingReport">
      <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+     <property name="maximumSize"><size><width>500</width><height>16777215</height></size></property>
      <layout class="QVBoxLayout" name="layoutReport">
       <item>
        <widget class="QLabel" name="labelReportHeader">
@@ -146,58 +135,40 @@
         <property name="text"><string>Staking Report</string></property>
        </widget>
       </item>
+      <!-- Report rows -->
       <item>
-       <layout class="QGridLayout" name="gridReport">
-        <property name="spacing"><number>8</number></property>
-        <item row="0" column="0">
-         <widget class="QLabel"><property name="text"><string>Last 24 Hours:</string></property></widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="labelStaking24h">
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel"><property name="text"><string>Last Week:</string></property></widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="labelStaking7d">
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLabel"><property name="text"><string>Last 30 Days:</string></property></widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QLabel" name="labelStaking30d">
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QLabel"><property name="text"><string>Last Year:</string></property></widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QLabel" name="labelStaking1y">
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
-        <item row="4" column="0">
-         <widget class="QLabel" name="labelTotalStakedText">
-          <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string>Total staked:</string></property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QLabel" name="labelStakingTotal">
-          <property name="font"><font><weight>75</weight><bold>true</bold></font></property>
-          <property name="text"><string notr="true">0.00 VAL</string></property>
-          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-         </widget>
-        </item>
+       <layout class="QHBoxLayout">
+        <item><widget class="QLabel"><property name="text"><string>Last 24 Hours:</string></property></widget></item>
+        <item><spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+        <item><widget class="QLabel" name="labelStaking24h"><property name="text"><string notr="true">0.00 VAL</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget></item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout">
+        <item><widget class="QLabel"><property name="text"><string>Last Week:</string></property></widget></item>
+        <item><spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+        <item><widget class="QLabel" name="labelStaking7d"><property name="text"><string notr="true">0.00 VAL</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget></item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout">
+        <item><widget class="QLabel"><property name="text"><string>Last 30 Days:</string></property></widget></item>
+        <item><spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+        <item><widget class="QLabel" name="labelStaking30d"><property name="text"><string notr="true">0.00 VAL</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget></item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout">
+        <item><widget class="QLabel"><property name="text"><string>Last Year:</string></property></widget></item>
+        <item><spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+        <item><widget class="QLabel" name="labelStaking1y"><property name="text"><string notr="true">0.00 VAL</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget></item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout">
+        <item><widget class="QLabel" name="labelTotalStakedText"><property name="font"><font><weight>75</weight><bold>true</bold></font></property><property name="text"><string>Total staked:</string></property></widget></item>
+        <item><spacer><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+        <item><widget class="QLabel" name="labelStakingTotal"><property name="font"><font><weight>75</weight><bold>true</bold></font></property><property name="text"><string notr="true">0.00 VAL</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget></item>
        </layout>
       </item>
      </layout>

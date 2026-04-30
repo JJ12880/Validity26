@@ -23,6 +23,7 @@
     background-color: #171728;
     color: #c8c8d8;
     font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
 }
 
 QWidget {
@@ -31,7 +32,7 @@ QWidget {
 }
 
 QMainWindow {
-    background-color: #0f0f1a;
+    background-color: #1e1e36;
 }
 
 QStackedWidget, QStackedWidget > QWidget {
@@ -87,6 +88,7 @@ QToolBar {
     border-bottom: 1px solid #2d2d4a;
     spacing: 6px;
     padding: 4px 8px;
+    min-height: 40px;
 }
 
 QToolBar QToolButton {
@@ -95,7 +97,7 @@ QToolBar QToolButton {
     border: none;
     border-radius: 6px;
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
 }
 
@@ -124,9 +126,8 @@ QLabel {
 
 /* === GROUP BOXES === */
 QGroupBox {
-    background-color: #1e1e36;
-    border: 1px solid #2d2d4a;
-    border-radius: 8px;
+    background-color: transparent;
+    border: none;
     margin-top: 12px;
     padding: 14px;
     padding-top: 26px;
@@ -139,7 +140,7 @@ QGroupBox::title {
     subcontrol-position: top left;
     padding: 4px 12px;
     color: #4ecca3;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 /* === FRAMES === */
@@ -161,7 +162,7 @@ QPushButton {
     border-radius: 6px;
     padding: 7px 18px;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 14px;
     min-height: 22px;
 }
 
@@ -212,7 +213,7 @@ QLineEdit {
     border: 1px solid #2d2d4a;
     border-radius: 5px;
     padding: 7px 10px;
-    font-size: 12px;
+    font-size: 14px;
     selection-background-color: #4ecca3;
     selection-color: #0f0f1a;
 }
@@ -285,7 +286,7 @@ QTableView, QTreeView, QListView {
 }
 
 QTableView::item, QTreeView::item, QListView::item {
-    padding: 5px 8px;
+    padding: 8px 8px;
     border-bottom: 1px solid #1a1a2a;
 }
 
@@ -301,7 +302,7 @@ QHeaderView::section {
     border-bottom: 1px solid #2d2d4a;
     padding: 7px 10px;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 /* === SCROLLBARS === */
@@ -352,7 +353,7 @@ QProgressBar {
     border-radius: 6px;
     text-align: center;
     color: #c8c8d8;
-    font-size: 11px;
+    font-size: 13px;
     min-height: 18px;
     min-width: 200px;
 }
@@ -406,7 +407,7 @@ QStatusBar::item {
 QStatusBar QLabel {
     color: #a0a0b8;
     padding: 0 8px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 QStatusBar QProgressBar {
@@ -473,14 +474,14 @@ QFrame#frame, QFrame#frame_2, QFrame#frameStakingReport {
 /* Section headers */
 QLabel#label_5, QLabel#label_4 {
     color: #c8c8d8;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: bold;
 }
 
 /* Balance amounts */
 QLabel#labelBalance, QLabel#labelWatchAvailable, QLabel#labelStake {
     color: #4ecca3;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: bold;
 }
 
@@ -492,45 +493,41 @@ QLabel#labelTotal, QLabel#labelWatchTotal {
 
 QLabel#labelUnconfirmed, QLabel#labelWatchPending {
     color: #7a7a96;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 /* Balance labels */
 QLabel#labelAvailableText, QLabel#labelPendingText, QLabel#labelTotalText,
 QLabel#labelStakeText, QLabel#labelWatchonly, QLabel#labelSpendable {
     color: #7a7a96;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Staking report */
 QLabel#labelStakingHeader {
     color: #c8c8d8;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: bold;
-}
-
-QLabel#labelStaking24hText, QLabel#labelStaking7dText,
-QLabel#labelStaking30dText, QLabel#labelStaking1yText {
-    color: #7a7a96;
-    font-size: 12px;
 }
 
 QLabel#labelStaking24h, QLabel#labelStaking7d,
 QLabel#labelStaking30d, QLabel#labelStaking1y {
     color: #4ecca3;
-    font-size: 12px;
+    font-size: 16px;
     font-weight: bold;
+    min-width: 180px;
 }
 
-QLabel#labelStakingTotalText {
+QLabel#labelTotalStakedText {
     color: #c8c8d8;
-    font-size: 13px;
+    font-size: 16px;
 }
 
 QLabel#labelStakingTotal {
     color: #6be4b8;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: bold;
+    min-width: 180px;
 }
 
 /* Hide sync warning icons */
@@ -555,42 +552,69 @@ QListView#listTransactions {
 /* ===== STAKING PAGE                      ===== */
 /* ============================================= */
 
-QFrame#frameStakingStatus, QFrame#frameTileCoins, QFrame#frameTilePercent,
-QFrame#frameStakingReport {
+QFrame#frameStakingStatus, QFrame#frameStakingReport {
     background-color: #1e1e36;
     border: 1px solid #2d2d4a;
     border-radius: 8px;
     padding: 12px;
 }
 
+QFrame#frameStakeTimer,
+QFrame#frameGaugeShare, QFrame#frameGaugeWeight, QFrame#frameGaugeAPR {
+    background-color: #1e1e36;
+    border: 1px solid #2d2d4a;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+QFrame#frameStakingStatus QLabel,
+QFrame#frameStakingReport QLabel {
+    font-size: 17px;
+}
+
 QLabel#labelStatusHeader, QLabel#labelReportHeader {
     color: #c8c8d8;
-    font-size: 14px;
+    font-size: 17px;
 }
 
-QLabel#labelStakingCoins, QLabel#labelNetworkShare {
+QLabel#labelYourWeight {
     color: #4ecca3;
-}
-
-QLabel#labelYourWeight, QLabel#labelNetworkWeight, QLabel#labelExpectedTime,
-QLabel#labelNetworkPercent {
-    color: #4ecca3;
+    font-size: 16px;
     font-weight: bold;
 }
 
-QPushButton#btnUnlockStaking {
+QPushButton#btnUnlockStaking, QPushButton#btnSetReserve {
     background-color: #2a6b56;
     color: #c8e8d8;
     border: 1px solid #3a8b6e;
     border-radius: 6px;
-    padding: 8px 20px;
+    padding: 8px 16px;
     font-weight: bold;
-    min-width: 200px;
 }
 
-QPushButton#btnUnlockStaking:hover {
+QPushButton#btnUnlockStaking:hover, QPushButton#btnSetReserve:hover {
     background-color: #348868;
     border-color: #4ecca3;
+}
+
+QPushButton#btnStopStaking {
+    background-color: #6b2a2a;
+    color: #e8c8c8;
+    border: 1px solid #8b3a3a;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+
+QPushButton#btnStopStaking:hover {
+    background-color: #884040;
+    border-color: #cc5555;
+}
+
+QLabel#labelReserveBalance {
+    color: #4ecca3;
+    font-size: 14px;
+    font-weight: bold;
 }
 
 /* ============================================= */
@@ -599,5 +623,5 @@ QPushButton#btnUnlockStaking:hover {
 QLabel#labelCoinControlFeatures {
     color: #4ecca3;
     font-weight: bold;
-    font-size: 13px;
+    font-size: 14px;
 }
