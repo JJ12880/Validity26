@@ -102,9 +102,7 @@ std::string LicenseInfo()
 
     return strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers").translated, COPYRIGHT_YEAR) +
            "\n" +
-           strprintf(_("Copyright (C) 2015-%i The Validity Developers").translated, 2018) +
-           "\n" +
-           strprintf(_("Copyright (C) 2019-%i The Validity Developers").translated, COPYRIGHT_YEAR) +
+           strprintf(_("Copyright (C) 2015-%i The Validity Developers").translated, COPYRIGHT_YEAR) +
            "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
