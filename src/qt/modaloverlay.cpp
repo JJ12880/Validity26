@@ -172,6 +172,9 @@ void ModalOverlay::toggleVisibility()
 
 void ModalOverlay::showHide(bool hide, bool userRequested)
 {
+    // VALIDITY-PORT: Don't auto-show overlay during sync — use status bar progress instead
+    if (!hide && !userRequested) return;
+
     if ( (layerIsVisible && !hide) || (!layerIsVisible && hide) || (!hide && userClosed && !userRequested))
         return;
 

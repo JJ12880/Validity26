@@ -126,7 +126,10 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
         Q_EMIT consoleShown(rpcConsole);
     }
 
+    // VALIDITY-PORT: Create overlay but keep it hidden — sync progress shown in status bar
     modalOverlay = new ModalOverlay(enableWallet, this->centralWidget());
+    modalOverlay->hide();
+    modalOverlay->setEnabled(false);
 
     // Accept D&D of URIs
     setAcceptDrops(true);
@@ -1108,6 +1111,8 @@ void BitcoinGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
     }
 #endif
 
+    // VALIDITY-PORT: Disable modal overlay during sync (use status bar instead)
+    /*
     if (modalOverlay)
     {
         if (synctype != SyncType::BLOCK_SYNC)
@@ -1115,6 +1120,7 @@ void BitcoinGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
         else
             modalOverlay->tipUpdate(count, blockDate, nVerificationProgress);
     }
+    */
     if (!clientModel)
         return;
 

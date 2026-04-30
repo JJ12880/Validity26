@@ -51,6 +51,8 @@
 #include <memory>
 
 #include <QApplication>
+#include <QFile>
+#include <QPalette>
 #include <QDebug>
 #include <QLatin1String>
 #include <QLibraryInfo>
@@ -545,6 +547,34 @@ int GuiMain(int argc, char* argv[])
 
     // Now that the QApplication is setup and we have parsed our parameters, we can set the platform style
     app.setupPlatformStyle();
+
+    // VALIDITY-PORT: Load dark theme
+    {
+        // Set dark palette first
+        QPalette darkPalette;
+        darkPalette.setColor(QPalette::Window, QColor(26, 26, 46));
+        darkPalette.setColor(QPalette::WindowText, QColor(224, 224, 224));
+        darkPalette.setColor(QPalette::Base, QColor(15, 15, 35));
+        darkPalette.setColor(QPalette::AlternateBase, QColor(22, 33, 62));
+        darkPalette.setColor(QPalette::ToolTipBase, QColor(22, 33, 62));
+        darkPalette.setColor(QPalette::ToolTipText, QColor(224, 224, 224));
+        darkPalette.setColor(QPalette::Text, QColor(224, 224, 224));
+        darkPalette.setColor(QPalette::Button, QColor(22, 33, 62));
+        darkPalette.setColor(QPalette::ButtonText, QColor(224, 224, 224));
+        darkPalette.setColor(QPalette::BrightText, QColor(0, 200, 83));
+        darkPalette.setColor(QPalette::Link, QColor(0, 200, 83));
+        darkPalette.setColor(QPalette::Highlight, QColor(0, 200, 83));
+        darkPalette.setColor(QPalette::HighlightedText, QColor(15, 15, 35));
+        app.setPalette(darkPalette);
+
+        // Load stylesheet on top
+        QFile styleFile(":/styles/dark");
+        if (styleFile.open(QFile::ReadOnly | QFile::Text)) {
+            QString styleSheet = QLatin1String(styleFile.readAll());
+            app.setStyleSheet(styleSheet);
+            styleFile.close();
+        }
+    }
 
     /// 3. Application identification
     // must be set before OptionsModel is initialized or translations are loaded,

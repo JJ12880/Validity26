@@ -76,9 +76,16 @@ public:
             addressRect.setLeft(addressRect.left() + watchonlyRect.width() + 5);
         }
 
-        painter->setPen(foreground);
+        // VALIDITY-PORT: Muted color for address (left 60%), bright amount (right 40%)
+        int amountWidth = addressRect.width() * 2 / 5;
+        QRect addrPartRect(addressRect.left(), addressRect.top(), addressRect.width() - amountWidth, addressRect.height());
+        QRect amtPartRect(addressRect.left() + addressRect.width() - amountWidth, addressRect.top(), amountWidth, addressRect.height());
+
+        painter->setPen(QColor(136, 136, 170));
         QRect boundingRect;
-        painter->drawText(addressRect, Qt::AlignLeft | Qt::AlignVCenter, address, &boundingRect);
+        // Elide long addresses
+        QString elidedAddr = painter->fontMetrics().elidedText(address, Qt::ElideMiddle, addrPartRect.width());
+        painter->drawText(addrPartRect, Qt::AlignLeft | Qt::AlignVCenter, elidedAddr, &boundingRect);
 
         if(amount < 0)
         {
@@ -90,7 +97,8 @@ public:
         }
         else
         {
-            foreground = option.palette.color(QPalette::Text);
+            // VALIDITY-PORT: Green for positive amounts in dark theme
+            foreground = QColor(0, 200, 83);
         }
         painter->setPen(foreground);
         QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true, BitcoinUnits::SeparatorStyle::ALWAYS);
@@ -99,15 +107,19 @@ public:
             amountText = QString("[") + amountText + QString("]");
         }
 
-        QRect amount_bounding_rect;
-        painter->drawText(amountRect, Qt::AlignRight | Qt::AlignVCenter, amountText, &amount_bounding_rect);
-
-        painter->setPen(option.palette.color(QPalette::Text));
+        // VALIDITY-PORT: Draw date (left) and amount (right) on top line
+        painter->setPen(QColor(200, 200, 220)); // Light gray for date
         QRect date_bounding_rect;
-        painter->drawText(amountRect, Qt::AlignLeft | Qt::AlignVCenter, GUIUtil::dateTimeStr(date), &date_bounding_rect);
+        QString dateStr = GUIUtil::dateTimeStr(date);
+        painter->drawText(amountRect, Qt::AlignLeft | Qt::AlignVCenter, dateStr, &date_bounding_rect);
 
-        // 0.4*date_bounding_rect.width() is used to visually distinguish a date from an amount.
-        const int minimum_width = 1.4 * date_bounding_rect.width() + amount_bounding_rect.width();
+        // VALIDITY-PORT: Draw amount right-aligned on bottom line in reserved space
+        painter->setPen(foreground);
+        QRect amount_bounding_rect;
+        painter->drawText(amtPartRect, Qt::AlignRight | Qt::AlignVCenter, amountText, &amount_bounding_rect);
+
+        // VALIDITY-PORT: Don't expand items beyond viewport — let addresses elide instead
+        const int minimum_width = 0;
         const auto search = m_minimum_width.find(index.row());
         if (search == m_minimum_width.end() || search->second != minimum_width) {
             m_minimum_width[index.row()] = minimum_width;
@@ -119,9 +131,9 @@ public:
 
     inline QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
-        const auto search = m_minimum_width.find(index.row());
-        const int minimum_text_width = search == m_minimum_width.end() ? 0 : search->second;
-        return {DECORATION_SIZE + 8 + minimum_text_width, DECORATION_SIZE};
+        // VALIDITY-PORT: Use available width, don't expand beyond viewport
+        Q_UNUSED(index);
+        return {option.rect.width() > 0 ? option.rect.width() : 400, DECORATION_SIZE};
     }
 
     BitcoinUnit unit{BitcoinUnit::BTC};

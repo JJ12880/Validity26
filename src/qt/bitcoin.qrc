@@ -90,4 +90,7 @@
     <qresource prefix="/fonts">
         <file alias="monospace">res/fonts/RobotoMono-Bold.ttf</file>
     </qresource>
+    <qresource prefix="/styles">
+        <file alias="dark">res/validity-dark.qss</file>
+    </qresource>
 </RCC>
