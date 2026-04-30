@@ -1724,11 +1724,52 @@ static CAmount GetTxDevSubsidy(const std::vector<CTxOut>& vout, const Consensus:
 {
     if (vout.size() < 3 || consensusParams.sDevFundScript.empty())
         return 0;
-    // Check if the third output (index 2) pays to the dev fund script
-    std::string scriptHex = HexStr(vout[2].scriptPubKey);
-    if (scriptHex == consensusParams.sDevFundScript)
-        return vout[2].nValue;
+    // VALIDITY-PORT: Search all outputs for the dev fund script
+    // (allows voluntary donation output alongside mandatory dev fund)
+    for (size_t i = 2; i < vout.size(); i++) {
+        if (HexStr(vout[i].scriptPubKey) == consensusParams.sDevFundScript)
+            return vout[i].nValue;
+    }
     return 0;
+}
+
+// VALIDITY-PORT: AvgFee protocol constants from validity-ref/src/main.h
+static const int AVG_FEE_START_BLOCK = 619480;
+static const int AVG_FEE_START_BLOCK_REVERT = 626550;
+static const int AVG_FEE_START_BLOCK_V2 = 682240;
+static const int AVG_FEE_SPAN = 1440;
+
+// VALIDITY-PORT: Calculate running average fee over last AVG_FEE_SPAN blocks
+static CAmount GetRunningFee(const CBlockIndex* pindexPrev, CAmount nFees)
+{
+    CAmount nCumulatedFee = 0;
+    const CBlockIndex* pblockindexTmp = pindexPrev;
+    while (pblockindexTmp && pblockindexTmp->nHeight > pindexPrev->nHeight - (AVG_FEE_SPAN - 1)) {
+        nCumulatedFee += pblockindexTmp->nFees;
+        pblockindexTmp = pblockindexTmp->pprev;
+    }
+    return (CAmount)((nCumulatedFee + nFees) / AVG_FEE_SPAN);
+}
+
+// VALIDITY-PORT: Get full PoS expected reward including AvgFee protocol
+CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmount nFees)
+{
+    CAmount nSubsidy = GetProofOfStakeSubsidy(nHeight);
+    if (nHeight >= AVG_FEE_START_BLOCK_V2) {
+        CAmount nRFee = 0;
+        if (nHeight > 5312140 && nHeight < 5313581) {
+            nRFee = 70;
+        }
+        nRFee += GetRunningFee(pindexPrev, nFees);
+        return nSubsidy + nRFee;
+    } else if (nHeight >= AVG_FEE_START_BLOCK_REVERT) {
+        return nSubsidy + nFees;
+    } else if (nHeight >= AVG_FEE_START_BLOCK) {
+        CAmount nRFee = GetRunningFee(pindexPrev, nFees);
+        return nSubsidy + nRFee;
+    } else {
+        return nSubsidy + nFees;
+    }
 }
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams, bool fProofOfStake)
@@ -1751,7 +1792,8 @@ CAmount GetProofOfWorkSubsidy(int nHeight)
 CAmount GetProofOfStakeSubsidy(int nHeight)
 {
     CAmount nSubsidy = 5 * COIN;
-    static const int DEV_FUND_BLOCK_HEIGHT = 1655000;
+    // VALIDITY-PORT: Read from consensus params instead of hardcoding
+    const int DEV_FUND_BLOCK_HEIGHT = Params().GetConsensus().nDevFundBlockHeight;
     static const CAmount nYear = 525600; // ~blocks per year
 
     if (nHeight >= 0 && nHeight <= 2779) {
@@ -1822,8 +1864,24 @@ CAmount GetProofOfStakeSubsidy(int nHeight)
         nSubsidy = 28900000; // 0.289 * COIN
     } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 19 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 20) {
         nSubsidy = 28000000; // 0.28 * COIN
-    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 20) {
-        nSubsidy = 27200000; // 0.272 * COIN (terminal rate)
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 20 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 21) {
+        nSubsidy = 27200000; // 0.272 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 21 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 22) {
+        nSubsidy = 26400000; // 0.264 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 22 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 23) {
+        nSubsidy = 25600000; // 0.256 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 23 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 24) {
+        nSubsidy = 24800000; // 0.248 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 24 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 25) {
+        nSubsidy = 24100000; // 0.241 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 25 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 26) {
+        nSubsidy = 23400000; // 0.234 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 26 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 27) {
+        nSubsidy = 22700000; // 0.227 * COIN
+    } else if (nHeight >= DEV_FUND_BLOCK_HEIGHT + nYear * 27 && nHeight < DEV_FUND_BLOCK_HEIGHT + nYear * 28) {
+        nSubsidy = 22000000; // 0.22 * COIN
+    } else {
+        nSubsidy = 0; // Hard cap supply at 9,000,000 VAL
     }
 
     return nSubsidy;
@@ -2482,7 +2540,8 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
                             tx_state.GetRejectReason(), tx_state.GetDebugMessage());
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), state.ToString());
             }
-            nFees += txfee;
+            // VALIDITY-PORT: Don't add txfee here — fees are accumulated below
+            // in the view.GetValueIn path to avoid double-counting
             if (!MoneyRange(nFees)) {
                 LogPrintf("ERROR: %s: accumulated fee in the block out of range.\n", __func__);
                 return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-accumulated-fee-outofrange");
@@ -2554,10 +2613,19 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
         }
     }
 
+    // VALIDITY-PORT: Store per-block fees for AvgFee protocol
+    pindex->nFees = nFees;
+
     if (block.IsProofOfStake() && params.GetConsensus().IsProtocolV3(block.GetBlockTime())) {
-        CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, params.GetConsensus(), true);
+        // VALIDITY-PORT: Use GetExpectedStakeReward which includes AvgFee protocol
+        CAmount blockReward = GetExpectedStakeReward(pindex->nHeight, pindex->pprev, nFees);
+        // VALIDITY-PORT: Add dev fund subsidy for dev fund blocks
+        if (params.GetConsensus().IsBlockDevFund(pindex->nHeight)) {
+            blockReward += GetDevSubsidy(pindex->nHeight, params.GetConsensus());
+        }
         if (nActualStakeReward > blockReward) {
-            LogPrintf("ERROR: ConnectBlock(): coinstake pays too much (actual=%d vs limit=%d)\n", nActualStakeReward, blockReward);
+            LogPrintf("ERROR: ConnectBlock(): coinstake pays too much (actual=%d vs limit=%d, nFees=%d, height=%d)\n",
+                nActualStakeReward, blockReward, nFees, pindex->nHeight);
             return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cs-amount");
         }
 
@@ -3744,11 +3812,18 @@ static bool CheckBlockSignature(const CBlock& block)
 static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& state, const Consensus::Params& consensusParams, Chainstate& chainstate, bool fCheckPOW = true, bool fOldClient = false)
 {
     // Check block version
-    if (block.nVersion < 7 && consensusParams.IsProtocolV2(block.GetBlockTime()))
+    // VALIDITY-PORT: Exempt genesis block (nVersion=1) from V2 version requirement
+    if (block.nVersion < 7 && consensusParams.IsProtocolV2(block.GetBlockTime()) && block.GetBlockTime() != 1431857735)
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-version", "bad block version");
+
+    // VALIDITY-PORT: After AvgFee protocol activation, require version >= 8
+    if (block.nVersion < 8 && block.GetBlockTime() > 1470919889)
+        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-version", "rejected for avg fee protocol");
 
     // Check proof of work hash
     if (fCheckPOW && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams)) {
+        LogPrintf("DEBUG CheckBlockHeader: PoW failed hash=%s version=%d time=%u bits=0x%08x nonce=%u fOldClient=%d\n",
+            block.GetHash().ToString(), block.nVersion, block.nTime, block.nBits, block.nNonce, fOldClient);
         if (fOldClient)
             return false;
         else
@@ -3883,7 +3958,9 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
             return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-multiple", "more than one coinbase");
 
     // Check coinbase timestamp
-    if (block.GetBlockTime() > FutureDrift(chainstate, block.vtx[0]->nTime ? (int64_t)block.vtx[0]->nTime : block.GetBlockTime()))
+    // VALIDITY-PORT: Skip for PoW blocks — old Validity had a bug where this check
+    // didn't run during the PoW period, so historical PoW blocks may violate it
+    if (!block.IsProofOfWork() && block.GetBlockTime() > FutureDrift(chainstate, block.vtx[0]->nTime ? (int64_t)block.vtx[0]->nTime : block.GetBlockTime()))
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-time", "coinbase timestamp is too early");
 
     // Check coinstake timestamp
@@ -3923,11 +4000,11 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
             assert(tx_state.GetResult() == TxValidationResult::TX_CONSENSUS);
             return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, tx_state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), tx_state.GetDebugMessage()));
-
-            // Check transaction timestamp
-            if (block.GetBlockTime() < (tx->nTime ? (int64_t)tx->nTime : block.GetBlockTime()))
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-tx-time", strprintf("%s : block timestamp earlier than transaction timestamp", __func__));
         }
+
+        // VALIDITY-PORT: Check transaction timestamp (must be before or equal to block time)
+        if (block.GetBlockTime() < (tx->nTime ? (int64_t)tx->nTime : block.GetBlockTime()))
+            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-tx-time", strprintf("%s : block timestamp earlier than transaction timestamp", __func__));
     }
     unsigned int nSigOps = 0;
     for (const auto& tx : block.vtx)
@@ -4200,14 +4277,23 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
                 return state.Invalid(BlockValidationResult::BLOCK_HEADER_SYNC, "older-than-checkpoint");
         }
 
-        // peercoin: Don't reject in case of old clients. Change our assumption instead.
-        // ppcTODO: Maybe add restrictions until when this is allowed? We don't want new clients to pretend to be old clients and try to abuse this.
-        // Blackcoin ToDo: remove fOldClient after the nodes got updated
+        // VALIDITY-PORT: For old clients that don't send nFlags, determine PoW/PoS:
+        // After nLastPOWBlock, all blocks are PoS (PoW is rejected by consensus).
+        // Before that, try PoW check first; if it fails, flip to PoS.
+        if (fOldClient && !fProofOfStake) {
+            BlockMap::iterator mi_prev{m_blockman.m_block_index.find(block.hashPrevBlock)};
+            if (mi_prev != m_blockman.m_block_index.end() &&
+                mi_prev->second.nHeight + 1 > GetConsensus().nLastPOWBlock) {
+                fProofOfStake = true;
+                fSetAsProofOfStake = true;
+            }
+        }
         if (!CheckBlockHeader(block, state, GetConsensus(), chainstate, !fProofOfStake, fOldClient))
         {
-            if (fOldClient)
+            if (fOldClient) {
                 fSetAsProofOfStake = !fProofOfStake; // our guess was wrong - correct it
-            else {
+                state = BlockValidationState(); // clear the error state for retry
+            } else {
                 LogPrint(BCLog::VALIDATION, "%s: Consensus::CheckBlockHeader: %s, %s\n", __func__, hash.ToString(), state.ToString());
                 return false;
             }
@@ -4226,7 +4312,8 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
             return state.Invalid(BlockValidationResult::BLOCK_INVALID_PREV, "bad-prevblk");
         }
         if (!ContextualCheckBlockHeader(block, state, m_blockman, *this, pindexPrev, m_options.adjusted_time_callback(), chainstate.m_chain, fSetAsProofOfStake)) {
-            LogPrint(BCLog::VALIDATION, "%s: Consensus::ContextualCheckBlockHeader: %s, %s\n", __func__, hash.ToString(), state.ToString());
+            LogPrintf("DEBUG AcceptBlockHeader FAILED: hash=%s reason=%s fSetAsProofOfStake=%d nVersion=%d nBits=0x%08x nTime=%u prevHash=%s\n",
+                hash.ToString(), state.ToString(), fSetAsProofOfStake, block.nVersion, block.nBits, block.nTime, block.hashPrevBlock.ToString());
             return false;
         }
 

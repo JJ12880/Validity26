@@ -9,7 +9,8 @@
  * network protocol versioning
  */
 
-static const int PROTOCOL_VERSION = 70016;
+// VALIDITY-PORT: Must match Validity network's expected protocol version
+static const int PROTOCOL_VERSION = 99008;
 
 //! peercoin: used to communicate with clients that don't know how to send PoS information in headers
 static const int OLD_VERSION = 70015;
@@ -18,7 +19,8 @@ static const int OLD_VERSION = 70015;
 static const int INIT_PROTO_VERSION = 209;
 
 //! disconnect from peers older than this proto version
-static const int MIN_PEER_PROTO_VERSION = 70015;
+// VALIDITY-PORT: Accept old Validity peers
+static const int MIN_PEER_PROTO_VERSION = 99008;
 
 //! BIP 0031, pong message, is enabled for all versions AFTER this one
 static const int BIP0031_VERSION = 60000;

@@ -61,20 +61,24 @@ unsigned int CalculateNextTargetRequired(const CBlockIndex* pindexLast, int64_t 
             return pindexLast->nBits;
     }
 
-    int64_t nTargetSpacing = params.IsProtocolV2(pindexLast->GetBlockTime()) ? params.nTargetSpacing : params.nTargetSpacingV1;
+    // VALIDITY-PORT: Use height-dependent target spacing from validity-ref
+    int64_t nTargetSpacing = params.GetTargetSpacing(pindexLast->nHeight);
     int64_t nActualSpacing = pindexLast->GetBlockTime() - nFirstBlockTime;
 
     // Limit adjustment step
     if (params.IsProtocolV1RetargetingFixed(pindexLast->GetBlockTime()) && nActualSpacing < 0)
         nActualSpacing = nTargetSpacing;
-    if (params.IsProtocolV3(pindexLast->GetBlockTime()) && nActualSpacing > nTargetSpacing*10)
+    if (params.IsProtocolV3(pindexLast->nTime) && nActualSpacing > nTargetSpacing*10)
         nActualSpacing = nTargetSpacing*10;
 
     // retarget with exponential moving toward target spacing
     const arith_uint256 bnTargetLimit = GetTargetLimit(pindexLast->GetBlockTime(), params, fProofOfStake);
     arith_uint256 bnNew;
     bnNew.SetCompact(pindexLast->nBits);
+    // VALIDITY-PORT: After block 48, use nTargetTimespanNEW (15 min) for retarget interval
     int64_t nInterval = params.nTargetTimespan / nTargetSpacing;
+    if (pindexLast->nHeight >= 48)
+        nInterval = params.nTargetTimespanNEW / nTargetSpacing;
     bnNew *= ((nInterval - 1) * nTargetSpacing + nActualSpacing + nActualSpacing);
     bnNew /= ((nInterval + 1) * nTargetSpacing);
 

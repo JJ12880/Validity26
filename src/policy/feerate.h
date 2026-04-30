@@ -15,7 +15,7 @@
 #include <type_traits>
 
 const std::string CURRENCY_UNIT = "VAL"; // One formatted unit // VALIDITY-PORT
-const std::string CURRENCY_ATOM = "vat"; // One indivisible minimum value unit // VALIDITY-PORT
+const std::string CURRENCY_ATOM = "sat"; // One indivisible minimum value unit // VALIDITY-PORT
 
 /* Used to determine type of fee estimation requested */
 enum class FeeEstimateMode {

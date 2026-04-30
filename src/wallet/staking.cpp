@@ -13,7 +13,7 @@
 
 namespace wallet {
 
-static int64_t GetStakeCombineThreshold() { return 500 * COIN; }
+static int64_t GetStakeCombineThreshold() { return 100 * COIN; } // VALIDITY-PORT: 100 COIN (was 500 in BlackCoin)
 static int64_t GetStakeSplitThreshold() { return 2 * GetStakeCombineThreshold(); }
 
 void StakeCoins(CWallet& wallet, bool fStake) {

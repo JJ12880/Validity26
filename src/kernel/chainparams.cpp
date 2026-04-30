@@ -87,6 +87,7 @@ public:
         consensus.posLimit = uint256S("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimitV2 = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nTargetTimespan = 1 * 60; // 1 min
+        consensus.nTargetTimespanNEW = 15 * 60; // 15 min (after block 48)
         consensus.nTargetSpacingV1 = 60;
         consensus.nTargetSpacing = 64;
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -127,7 +128,9 @@ public:
         consensus.sDevFundScript = "a914622b2274e97ebce0b25a5316ceca0af02120395087";
         consensus.nDevFundPaymentInterval = 10080;
 
-        consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000000000036923aefeb05b43b54");
+        // VALIDITY-PORT: Set to zero for initial sync — PoS chains have low cumulative work
+        // which causes pre-sync to loop. Can be raised once chain is validated.
+        consensus.nMinimumChainWork = uint256S("0x00");
         consensus.defaultAssumeValid = uint256S("0xc1b0258f6209ecd4dcdfc4f9d8b35a3fe0a80de02a320929432f038c973cf78f"); // block 5313600
 
         /**
@@ -241,6 +244,7 @@ public:
         consensus.posLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimitV2 = uint256S("000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nTargetTimespan = 16 * 60; // 16 mins
+        consensus.nTargetTimespanNEW = 16 * 60; // same as nTargetTimespan for testnet/regtest
         consensus.nTargetSpacingV1 = 60;
         consensus.nTargetSpacing = 64;
         consensus.fPowAllowMinDifficultyBlocks = true;
@@ -377,6 +381,7 @@ public:
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 1;
         consensus.nTargetTimespan = 16 * 60; // 16 mins
+        consensus.nTargetTimespanNEW = 16 * 60; // same as nTargetTimespan for testnet/regtest
         consensus.nTargetSpacingV1 = 64;
         consensus.nTargetSpacing = 64;
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -460,6 +465,7 @@ public:
         consensus.posLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimitV2 = uint256S("000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nTargetTimespan = 16 * 60; // 16 mins
+        consensus.nTargetTimespanNEW = 16 * 60; // same as nTargetTimespan for testnet/regtest
         consensus.nTargetSpacingV1 = 64;
         consensus.nTargetSpacing = 64;
         consensus.fPowAllowMinDifficultyBlocks = true;

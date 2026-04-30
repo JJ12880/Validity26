@@ -117,7 +117,7 @@ static const unsigned int MAX_GETDATA_SZ = 1000;
 static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 16;
 /** Default time during which a peer must stall block download progress before being disconnected.
  * the actual timeout is increased temporarily if peers are disconnected for hitting the timeout */
-static constexpr auto BLOCK_STALLING_TIMEOUT_DEFAULT{2s};
+static constexpr auto BLOCK_STALLING_TIMEOUT_DEFAULT{30s}; // VALIDITY-PORT: increased from 2s for slow old peers
 /** Maximum timeout for stalling block download. */
 static constexpr auto BLOCK_STALLING_TIMEOUT_MAX{64s};
 /** Number of headers sent in one getheaders result. We rely on the assumption that if a peer sends
@@ -1658,13 +1658,13 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
         }
     }
 
-    // Blackcoin ToDo: revert after nodes upgrade to current version
-    // /*
-    // Set nFlags in case of proof of stake block received from an old node
+    // VALIDITY-PORT: Set nFlags for blocks from old Validity peers.
+    // Old Validity doesn't send nFlags, so detect PoS from block content:
+    // PoS blocks have vtx[1] as a coinstake transaction.
     std::shared_ptr<CBlock> pblock_mutable = std::const_pointer_cast<CBlock>(pblock);
-    bool old_client = pfrom.nVersion <= OLD_VERSION;
+    bool old_client = pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000;
 
-    if (old_client && pblock_mutable->IsProofOfStake())
+    if (old_client && pblock_mutable->vtx.size() > 1 && pblock_mutable->vtx[1]->IsCoinStake())
         pblock_mutable->nFlags = CBlockIndex::BLOCK_PROOF_OF_STAKE;
 
     // Avoid implicit conversions
@@ -3141,10 +3141,10 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     bool headers_connect_blockindex{chain_start_header != nullptr};
 
     if (!headers_connect_blockindex) {
+        // VALIDITY-PORT: Debug logging for header connection failure
+        LogPrintf("DEBUG: headers[0].hashPrevBlock=%s not found in block index (nCount=%d, hash=%s, version=%d) from peer=%d\n",
+            headers[0].hashPrevBlock.ToString(), nCount, headers[0].GetHash().ToString(), headers[0].nVersion, pfrom.GetId());
         if (nCount <= MAX_BLOCKS_TO_ANNOUNCE) {
-            // If this looks like it could be a BIP 130 block announcement, use
-            // special logic for handling headers that don't connect, as this
-            // could be benign.
             HandleFewUnconnectingHeaders(pfrom, peer, headers);
         } else {
             Misbehaving(peer, 10, "invalid header received");
@@ -3192,9 +3192,16 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
 
     // Now process all the headers.
     BlockValidationState state;
-    if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion <= OLD_VERSION, &pindexLast)) {
+    // VALIDITY-PORT: Treat old Validity peers (99xxx) as old clients for header validation
+    if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000, &pindexLast)) {
         if (state.IsInvalid()) {
-            MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
+            // VALIDITY-PORT: Don't ban old Validity peers for header validation failures
+            // during initial sync — difficulty retargeting differences cause false positives
+            if (pfrom.nVersion >= 99000) {
+                LogPrintf("VALIDITY: header validation failed from old peer=%d: %s (not banning)\n", pfrom.GetId(), state.ToString());
+            } else {
+                MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
+            }
             return;
         }
     }
@@ -3583,7 +3590,8 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
     if (peer == nullptr) return;
 
     // peercoin: set/unset deserialization mode to read PoS flag in headers
-    if (pfrom.nVersion <= OLD_VERSION)
+    // VALIDITY-PORT: Old Validity peers (99xxx) don't send nFlags in headers either
+    if (pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000)
         vRecv.SetType(vRecv.GetType() & ~SER_POSMARKER);
     else
         vRecv.SetType(vRecv.GetType() | SER_POSMARKER);
@@ -3671,12 +3679,16 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 
         const CNetMsgMaker msg_maker(greatest_common_version);
 
-        if (greatest_common_version >= WTXID_RELAY_VERSION) {
+        // VALIDITY-PORT: Old Validity nodes (protocol >= 99000) don't understand
+        // wtxidrelay or sendaddrv2 and will disconnect if they receive them.
+        bool fOldValidityPeer = (nVersion >= 99000);
+
+        if (greatest_common_version >= WTXID_RELAY_VERSION && !fOldValidityPeer) {
             m_connman.PushMessage(&pfrom, msg_maker.Make(NetMsgType::WTXIDRELAY));
         }
 
         // Signal ADDRv2 support (BIP155).
-        if (greatest_common_version >= 70016) {
+        if (greatest_common_version >= 70016 && !fOldValidityPeer) {
             // BIP155 defines addrv2 and sendaddrv2 for all protocol versions, but some
             // implementations reject messages they don't know. As a courtesy, don't send
             // it to nodes with a version before 70016, as no software is known to support

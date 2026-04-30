@@ -231,10 +231,10 @@ void UnserializeTransaction(TxType& tx, Stream& s, const TransactionSerParams& p
     const bool fAllowWitness = params.allow_witness;
 
     s >> tx.nVersion;
-    if (tx.nVersion < 2)
-        s >> tx.nTime;
-    else
-        tx.nTime = 0;
+    // VALIDITY-PORT: Old Validity always serializes nTime regardless of version.
+    // BlackCoin-more only reads nTime for version < 2, but Validity's chain has
+    // nTime in ALL transactions including version 2+.
+    s >> tx.nTime;
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
@@ -275,8 +275,8 @@ void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParam
     const bool fAllowWitness = params.allow_witness;
 
     s << tx.nVersion;
-    if (tx.nVersion < 2)
-        s << tx.nTime;
+    // VALIDITY-PORT: Always serialize nTime (matches old Validity protocol)
+    s << tx.nTime;
     unsigned char flags = 0;
     // Consistency check
     if (fAllowWitness) {
@@ -315,7 +315,7 @@ class CTransaction
 {
 public:
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=2;
+    static const int32_t CURRENT_VERSION=1; // VALIDITY-PORT: Match old Validity tx version
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not

@@ -137,15 +137,20 @@ bool CheckProofOfStake(CBlockIndex* pindexPrev, const CTransaction& tx, unsigned
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-exist", strprintf("CheckProofOfStake() : Stake prevout does not exist %s", txin.prevout.hash.ToString()));
     }
 
-    // VALIDITY-PORT: Height-dependent stake maturity check
-    int nRequiredMaturity = Params().GetConsensus().nStakeMaturity(pindexPrev->nHeight + 1);
-    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < nRequiredMaturity){
-        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-mature", strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", nRequiredMaturity, pindexPrev->nHeight + 1 - coinPrev.nHeight));
-    }
-
     CBlockIndex* blockFrom = pindexPrev->GetAncestor(coinPrev.nHeight);
     if (!blockFrom) {
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-loaded", strprintf("CheckProofOfStake() : Block at height %i for prevout can not be loaded", coinPrev.nHeight));
+    }
+
+    // VALIDITY-PORT: Maturity check — V3+ uses height-based, pre-V3 uses time-based nStakeMinAge
+    if (Params().GetConsensus().IsProtocolV3(nTimeTx)) {
+        int nRequiredMaturity = Params().GetConsensus().nStakeMaturity(pindexPrev->nHeight + 1);
+        if (pindexPrev->nHeight + 1 - coinPrev.nHeight < nRequiredMaturity){
+            return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-prevout-not-mature", strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", nRequiredMaturity, pindexPrev->nHeight + 1 - coinPrev.nHeight));
+        }
+    } else {
+        if (blockFrom->nTime + Params().GetConsensus().nStakeMinAge > nTimeTx)
+            return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "stake-min-age", "CheckProofOfStake() : min age violation");
     }
 
     // Verify signature

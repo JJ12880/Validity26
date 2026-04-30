@@ -122,6 +122,8 @@ CAmount GetProofOfWorkSubsidy(int nHeight = 0);
 CAmount GetProofOfStakeSubsidy(int nHeight = 0);
 // VALIDITY-PORT: Dev fund subsidy
 CAmount GetDevSubsidy(int nHeight, const Consensus::Params& consensusParams);
+// VALIDITY-PORT: Expected stake reward including AvgFee protocol
+CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmount nFees);
 
 bool FatalError(kernel::Notifications& notifications, BlockValidationState& state, const std::string& strMessage, const bilingual_str& userMessage = {});
 

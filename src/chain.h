@@ -194,6 +194,10 @@ public:
     //! @sa ActivateSnapshot
     uint32_t nStatus GUARDED_BY(::cs_main){0};
 
+    // VALIDITY-PORT: Per-block fee total, used by AvgFee protocol
+    CAmount nFees{0};
+    void IncrementFee(CAmount fee) { nFees += fee; }
+
     //! block header
     int32_t nVersion{0};
     uint256 hashMerkleRoot{};
@@ -467,6 +471,12 @@ public:
         // PoS fields
         READWRITE(obj.nFlags);
         READWRITE(obj.nStakeModifier);
+
+        // VALIDITY-PORT: Per-block fees for AvgFee protocol
+        // Read nFees if data is available (backward compat with old index)
+        if (!s.eof()) {
+            READWRITE(VARINT_MODE(obj.nFees, VarIntMode::NONNEGATIVE_SIGNED));
+        }
     }
 
     uint256 ConstructBlockHash() const

@@ -106,6 +106,7 @@ struct Params {
     bool fPoSNoRetargeting;
     int64_t nTargetSpacing;
     int64_t nTargetTimespan;
+    int64_t nTargetTimespanNEW{0}; // VALIDITY-PORT: 15 min retarget interval after block 48
     std::chrono::seconds TargetSpacing() const
     {
         return std::chrono::seconds{nTargetSpacing};
