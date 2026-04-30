@@ -24,7 +24,13 @@ private:
     //! Bitcoin mainnet, testnet, etc
     std::string m_chain;
 
-    std::string NetworkArg() const;
+    //! VALIDITY-PORT: Build the common argv prefix ({"--fingerprint", m_fingerprint,
+    //! "--chain", m_chain}) for subprocess calls. Using this helper instead of
+    //! string concatenation into a single command line prevents argument
+    //! injection via m_fingerprint or m_chain values that came from an
+    //! external signer subprocess response. Replaces the old NetworkArg()
+    //! helper which returned a space-prefixed string for concatenation.
+    std::vector<std::string> CommonArgs() const;
 
 public:
     //! @param[in] command      the command which handles interaction with the external signer

@@ -16,15 +16,23 @@
 
 ExternalSigner::ExternalSigner(const std::string& command, const std::string chain, const std::string& fingerprint, const std::string name): m_command(command), m_chain(chain), m_fingerprint(fingerprint), m_name(name) {}
 
-std::string ExternalSigner::NetworkArg() const
+// VALIDITY-PORT: Injection-safe argv builder shared by all external signer
+// subprocess calls. m_fingerprint and m_chain come from parsing HWI's (or
+// the hardware wallet's) JSON responses and are therefore not fully trusted;
+// passing them as individual argv entries via the vector-based
+// RunCommandParseJSON overload prevents a malicious fingerprint or chain
+// string from closing a quoted argument and injecting additional CLI flags
+// into HWI. Do NOT switch back to string concatenation + the single-string
+// RunCommandParseJSON overload.
+std::vector<std::string> ExternalSigner::CommonArgs() const
 {
-    return " --chain " + m_chain;
+    return {"--fingerprint", m_fingerprint, "--chain", m_chain};
 }
 
 bool ExternalSigner::Enumerate(const std::string& command, std::vector<ExternalSigner>& signers, const std::string chain)
 {
     // Call <command> enumerate
-    const UniValue result = RunCommandParseJSON(command + " enumerate");
+    const UniValue result = RunCommandParseJSON(command, std::vector<std::string>{"enumerate"});
     if (!result.isArray()) {
         throw std::runtime_error(strprintf("'%s' received invalid response, expected array of signers", command));
     }
@@ -61,12 +69,20 @@ bool ExternalSigner::Enumerate(const std::string& command, std::vector<ExternalS
 
 UniValue ExternalSigner::DisplayAddress(const std::string& descriptor) const
 {
-    return RunCommandParseJSON(m_command + " --fingerprint \"" + m_fingerprint + "\"" + NetworkArg() + " displayaddress --desc \"" + descriptor + "\"");
+    std::vector<std::string> args = CommonArgs();
+    args.emplace_back("displayaddress");
+    args.emplace_back("--desc");
+    args.emplace_back(descriptor);
+    return RunCommandParseJSON(m_command, args);
 }
 
 UniValue ExternalSigner::GetDescriptors(const int account)
 {
-    return RunCommandParseJSON(m_command + " --fingerprint \"" + m_fingerprint + "\"" + NetworkArg() + " getdescriptors --account " + strprintf("%d", account));
+    std::vector<std::string> args = CommonArgs();
+    args.emplace_back("getdescriptors");
+    args.emplace_back("--account");
+    args.emplace_back(strprintf("%d", account));
+    return RunCommandParseJSON(m_command, args);
 }
 
 bool ExternalSigner::SignTransaction(PartiallySignedTransaction& psbtx, std::string& error)
@@ -92,10 +108,15 @@ bool ExternalSigner::SignTransaction(PartiallySignedTransaction& psbtx, std::str
         return false;
     }
 
-    const std::string command = m_command + " --stdin --fingerprint \"" + m_fingerprint + "\"" + NetworkArg();
+    // VALIDITY-PORT: Build argv directly. The PSBT base64 goes through stdin, not argv,
+    // so it can't inject into the command line regardless of its content. The
+    // fingerprint and chain come from the argv-safe CommonArgs() helper.
+    std::vector<std::string> args = {"--stdin"};
+    auto common = CommonArgs();
+    args.insert(args.end(), common.begin(), common.end());
     const std::string stdinStr = "signtx \"" + EncodeBase64(ssTx.str()) + "\"";
 
-    const UniValue signer_result = RunCommandParseJSON(command, stdinStr);
+    const UniValue signer_result = RunCommandParseJSON(m_command, args, stdinStr);
 
     if (signer_result.find_value("error").isStr()) {
         error = signer_result.find_value("error").get_str();

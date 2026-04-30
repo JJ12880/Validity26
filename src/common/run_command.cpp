@@ -53,3 +53,56 @@ UniValue RunCommandParseJSON(const std::string& str_command, const std::string& 
     throw std::runtime_error("Compiled without external signing support (required for external signing).");
 #endif // ENABLE_EXTERNAL_SIGNER
 }
+
+// VALIDITY-PORT: argv-based overload. See header for rationale.
+// Passing arguments as a vector to boost::process avoids the tokenizer
+// entirely — each arg goes through to argv as a single entry, regardless
+// of whitespace, quotes, or metacharacters. Use this overload whenever
+// any command-line component comes from untrusted data.
+UniValue RunCommandParseJSON(const std::string& exe,
+                             const std::vector<std::string>& args,
+                             const std::string& str_std_in)
+{
+#ifdef ENABLE_EXTERNAL_SIGNER
+    namespace bp = boost::process;
+
+    UniValue result_json;
+    bp::opstream stdin_stream;
+    bp::ipstream stdout_stream;
+    bp::ipstream stderr_stream;
+
+    if (exe.empty()) return UniValue::VNULL;
+
+    bp::child c(
+        exe,
+        bp::args = args,
+        bp::std_out > stdout_stream,
+        bp::std_err > stderr_stream,
+        bp::std_in < stdin_stream
+    );
+    if (!str_std_in.empty()) {
+        stdin_stream << str_std_in << std::endl;
+    }
+    stdin_stream.pipe().close();
+
+    std::string result;
+    std::string error;
+    std::getline(stdout_stream, result);
+    std::getline(stderr_stream, error);
+
+    c.wait();
+    const int n_error = c.exit_code();
+    if (n_error) {
+        // Reconstruct a display-only command line for the error message.
+        // NOT the actual command that ran — this is just for logging/debugging.
+        std::string display_command = exe;
+        for (const auto& arg : args) display_command += " " + arg;
+        throw std::runtime_error(strprintf("RunCommandParseJSON error: process(%s) returned %d: %s\n", display_command, n_error, error));
+    }
+    if (!result_json.read(result)) throw std::runtime_error("Unable to parse JSON: " + result);
+
+    return result_json;
+#else
+    throw std::runtime_error("Compiled without external signing support (required for external signing).");
+#endif // ENABLE_EXTERNAL_SIGNER
+}
