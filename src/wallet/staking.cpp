@@ -6,6 +6,7 @@
 // Copyright (c) 2016-2023 The Qtum developers
 
 #include <index/txindex.h>
+#include <util/strencodings.h>
 #include <wallet/coincontrol.h>
 #include <wallet/receive.h>
 #include <wallet/staking.h>
@@ -290,6 +291,11 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
     bool fKernelFound = false;
     CScript scriptPubKeyKernel, scriptPubKeyOut;
     bool bMinterKey = false;
+    // VALIDITY-PORT: Cache the stake timestamp mask once. The kernel search below
+    // must skip timestamps that don't satisfy (nTime & mask) == 0, otherwise we
+    // burn CPU testing kernels that — even if their hash beats the target — would
+    // be rejected by CheckCoinStakeTimestamp at block validation with "bad-cs-time".
+    const uint32_t nStakeTimestampMask = Params().GetConsensus().nStakeTimestampMask;
 
     for (const std::pair<const CWalletTx*, unsigned int> &pcoin : setCoins)
     {
@@ -303,6 +309,12 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
         static int nMaxStakeSearchInterval = 60;
         for (unsigned int n=0; n<std::min(nSearchInterval,(int64_t)nMaxStakeSearchInterval) && !fKernelFound; n++)
         {
+            // VALIDITY-PORT: Skip timestamps that don't satisfy the V2+ stake mask.
+            // CheckCoinStakeTimestamp would reject any block whose nTime fails this,
+            // so testing such kernels is wasted work. With nStakeTimestampMask=0xf,
+            // this drops the per-coin search from 60 calls to ~4 (every 16 seconds).
+            if ((txNew.nTime - n) & nStakeTimestampMask)
+                continue;
             // Search backward in time from the given txNew timestamp
             // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
             COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
@@ -433,46 +445,51 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
     }
 
     // Calculate reward
-    // VALIDITY-PORT: Pass height for height-dependent reward schedule
+    // VALIDITY-PORT: Must use GetExpectedStakeReward so the wallet's claim matches
+    // the validator's expectation byte-for-byte. GetExpectedStakeReward handles the
+    // AvgFee protocol running-fee averaging (blocks >= 682240) exactly like old
+    // validity-ref/main.cpp:GetProofOfStakeSubsidy(pindexPrev, nFees). Using the
+    // raw subsidy + current-block nFees here would overclaim on any block whose
+    // current fees exceed the running average, producing invalid coinstakes.
     int nStakeHeight = pindexPrev->nHeight + 1;
-    CAmount nReward = nFees + GetProofOfStakeSubsidy(nStakeHeight);
+    CAmount nReward = GetExpectedStakeReward(nStakeHeight, pindexPrev, nFees);
     if (nReward < 0)
         return false;
 
-    bool isDevFundEnabled = (wallet.m_donation_percentage > 0 && !Params().GetDevFundAddress().empty()) ? true : false;
-    CAmount nDevCredit = 0;
-    CAmount nMinerCredit = 0;
+    nCredit += nReward;
 
-    if (isDevFundEnabled)
-    {
-        nDevCredit = (GetProofOfStakeSubsidy(nStakeHeight) * wallet.m_donation_percentage) / 100;
-        nMinerCredit = nReward - nDevCredit;
-        nCredit += nMinerCredit;
-    }
-    else
-    {
-        nCredit += nReward;
-    }
+    // VALIDITY-PORT: Mandatory dev fund (replaces BlackCoin-more's voluntary donation).
+    // On IsBlockDevFund heights the coinstake MUST be exactly [empty, stake, devfund]
+    // with the dev fund script at vout[2] and value equal to GetDevSubsidy(height).
+    // The dev fund is additive new issuance, not deducted from the staker's reward.
+    // Matches validity-ref/src/wallet/wallet.cpp:CreateCoinStake.
+    const Consensus::Params& vConsensus = Params().GetConsensus();
+    const bool fIsDevFundBlock = vConsensus.IsBlockDevFund(nStakeHeight);
 
-    // Split stake
-    if (nCredit >= GetStakeSplitThreshold())
+    // Split stake — but not on dev fund blocks, where the validator requires exactly
+    // 3 outputs. A split dev fund block would be consensus-invalid.
+    if (!fIsDevFundBlock && nCredit >= GetStakeSplitThreshold())
         txNew.vout.push_back(CTxOut(0, scriptPubKeyOut));
 
-    if (isDevFundEnabled)
-        txNew.vout.push_back(CTxOut(0, Params().GetDevRewardScript()));
-
-    // Set output amount
-    if (txNew.vout.size() == (isDevFundEnabled ? 4u : 3u) + bMinterKey) {
+    // Set stake output amounts based on whether we split.
+    if (txNew.vout.size() == 3u + bMinterKey) {
+        // Split case: two equal-ish stake outputs
         txNew.vout[1 + bMinterKey].nValue = (nCredit / 2 / CENT) * CENT;
         txNew.vout[2 + bMinterKey].nValue = nCredit - txNew.vout[1 + bMinterKey].nValue;
-        if (isDevFundEnabled)
-            txNew.vout[3 + bMinterKey].nValue = nDevCredit;
     }
     else
     {
+        // Non-split case: single stake output
         txNew.vout[1 + bMinterKey].nValue = nCredit;
-        if (isDevFundEnabled)
-            txNew.vout[2 + bMinterKey].nValue = nDevCredit;
+    }
+
+    // Add mandatory dev fund output last, using the raw hex-encoded script from
+    // consensus params so the byte layout exactly matches the validator's HexStr
+    // comparison in GetTxDevSubsidy.
+    if (fIsDevFundBlock) {
+        const CAmount nDevSubsidy = GetDevSubsidy(nStakeHeight, vConsensus);
+        const std::vector<unsigned char> rewardScript = ParseHex(vConsensus.sDevFundScript);
+        txNew.vout.push_back(CTxOut(nDevSubsidy, CScript(rewardScript.begin(), rewardScript.end())));
     }
 
     // Sign
