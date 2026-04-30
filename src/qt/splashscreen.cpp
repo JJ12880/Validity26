@@ -30,12 +30,6 @@
 SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     : QWidget()
 {
-    // set reference point, paddings
-    int paddingRight            = 15;
-    int paddingTop              = 50;
-    int titleVersionVSpace      = 17;
-    int titleCopyrightVSpace    = 40;
-
     float fontFactor            = 1.0;
     float devicePixelRatio      = 1.0;
     devicePixelRatio = static_cast<QGuiApplication*>(QCoreApplication::instance())->devicePixelRatio();
@@ -44,10 +38,9 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     QString titleText       = PACKAGE_NAME;
     QString versionText     = QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
 
-    QString copyrightTextBitcoin     = QChar(0xA9)+QString(" %1-%2 ").arg(2009).arg(COPYRIGHT_YEAR) + QString("The Bitcoin Core developers");
-    QString copyrightTextValidity   = QChar(0xA9)+QString(" %1-%2 ").arg(2015).arg(COPYRIGHT_YEAR) + QString("The Validity developers");
+    QString copyrightTextBitcoin   = QChar(0xA9)+QString(" %1-%2 ").arg(2009).arg(COPYRIGHT_YEAR) + QString("The Bitcoin Core developers");
+    QString copyrightTextValidity  = QChar(0xA9)+QString(" %1-%2 ").arg(2015).arg(COPYRIGHT_YEAR) + QString("The Validity developers");
 
-    // QString copyrightText   = QString::fromUtf8(CopyrightHolders(strprintf("\xc2\xA9 %u-%u ", 2009, COPYRIGHT_YEAR)).c_str());
     const QString& titleAddText    = networkStyle->getTitleAddText();
 
     QString font            = QApplication::font().toString();
@@ -64,62 +57,56 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
 
     // VALIDITY-PORT: Dark splash screen
     QRadialGradient gradient(QPoint(0,0), splashSize.width()/devicePixelRatio);
-    gradient.setColorAt(0, QColor(23,23,40));
-    gradient.setColorAt(1, QColor(15,15,26));
+    gradient.setColorAt(0, QColor(38,38,62));
+    gradient.setColorAt(1, QColor(24,24,44));
     QRect rGradient(QPoint(0,0), splashSize);
     pixPaint.fillRect(rGradient, gradient);
 
-    // draw the bitcoin icon, expected size of PNG: 1024x1024
-    QRect rectIcon(QPoint(-130,-102), QSize(430,430));
+    // Draw the icon — scaled down to fit left side nicely
+    const int iconSize = 200;
+    QRect rectIcon(QPoint(20, 55), QSize(iconSize, iconSize));
 
     const QSize requiredSize(1024,1024);
     QPixmap icon(networkStyle->getAppIcon().pixmap(requiredSize));
 
     pixPaint.drawPixmap(rectIcon, icon);
 
-    // check font size and drawing with
-    pixPaint.setFont(QFont(font, 33*fontFactor));
+    // Text area starts to the right of the icon
+    const int textLeft = 240;
+    const int textRight = 470;
+    const int textWidth = textRight - textLeft;
+
+    // Title text
+    pixPaint.setFont(QFont(font, 28*fontFactor));
     QFontMetrics fm = pixPaint.fontMetrics();
     int titleTextWidth = GUIUtil::TextWidth(fm, titleText);
-    if (titleTextWidth > 176) {
-        fontFactor = fontFactor * 176 / titleTextWidth;
+    if (titleTextWidth > textWidth) {
+        fontFactor = fontFactor * textWidth / titleTextWidth;
+        pixPaint.setFont(QFont(font, 28*fontFactor));
     }
-
-    pixPaint.setFont(QFont(font, 33*fontFactor));
-    fm = pixPaint.fontMetrics();
-    titleTextWidth  = GUIUtil::TextWidth(fm, titleText);
     pixPaint.setPen(QColor(200,200,216));
-    pixPaint.drawText(pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight+2,paddingTop,titleText);
+    pixPaint.drawText(textLeft, 90, titleText);
 
-    pixPaint.setPen(QColor(78,204,163));  // VALIDITY-PORT: Teal version text
-    pixPaint.setFont(QFont(font, 15*fontFactor));
+    // Version text — teal
+    pixPaint.setPen(QColor(78,204,163));
+    pixPaint.setFont(QFont(font, 12*fontFactor));
+    pixPaint.drawText(textLeft, 112, versionText);
 
-    // if the version string is too long, reduce size
-    fm = pixPaint.fontMetrics();
-    int versionTextWidth  = GUIUtil::TextWidth(fm, versionText);
-    if(versionTextWidth > titleTextWidth+paddingRight-10) {
-        pixPaint.setFont(QFont(font, 10*fontFactor));
-        titleVersionVSpace -= 5;
-    }
-    pixPaint.drawText(pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight+5,paddingTop+titleVersionVSpace,versionText);
-
-    // draw copyright stuff
-    {
-        pixPaint.setFont(QFont(font, 10*fontFactor));
-        const int x = pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight+5;
-        const int y = paddingTop+titleCopyrightVSpace;
-        pixPaint.drawText(x,y,copyrightTextBitcoin);
-        pixPaint.drawText(x,y+10,copyrightTextValidity);
-    }
+    // Copyright text — muted
+    pixPaint.setFont(QFont(font, 8*fontFactor));
+    pixPaint.setPen(QColor(120,120,150));
+    pixPaint.drawText(textLeft, 145, copyrightTextBitcoin);
+    pixPaint.drawText(textLeft, 160, copyrightTextValidity);
 
     // draw additional text if special network
     if(!titleAddText.isEmpty()) {
         QFont boldFont = QFont(font, 10*fontFactor);
         boldFont.setWeight(QFont::Bold);
         pixPaint.setFont(boldFont);
+        pixPaint.setPen(QColor(78,204,163));
         fm = pixPaint.fontMetrics();
         int titleAddTextWidth  = GUIUtil::TextWidth(fm, titleAddText);
-        pixPaint.drawText(pixmap.width()/devicePixelRatio-titleAddTextWidth-10,15,titleAddText);
+        pixPaint.drawText(480/devicePixelRatio-titleAddTextWidth-10,20,titleAddText);
     }
 
     pixPaint.end();
