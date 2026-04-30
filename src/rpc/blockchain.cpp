@@ -233,6 +233,7 @@ UniValue blockToJSON(BlockManager& blockman, const CBlock& block, const CBlockIn
 
     result.pushKV("flags", strprintf("%s", blockindex->IsProofOfStake()? "proof-of-stake" : "proof-of-work"));
     result.pushKV("modifier", blockindex->nStakeModifier.GetHex());
+    result.pushKV("nFees", ValueFromAmount(blockindex->nFees)); // VALIDITY-PORT: Show persisted block fees
     if (block.IsProofOfStake())
         result.pushKV("signature", HexStr(block.vchBlockSig));
 

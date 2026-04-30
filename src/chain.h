@@ -472,11 +472,8 @@ public:
         READWRITE(obj.nFlags);
         READWRITE(obj.nStakeModifier);
 
-        // VALIDITY-PORT: Per-block fees for AvgFee protocol
-        // Read nFees if data is available (backward compat with old index)
-        if (!s.eof()) {
-            READWRITE(VARINT_MODE(obj.nFees, VarIntMode::NONNEGATIVE_SIGNED));
-        }
+        // VALIDITY-PORT: Per-block fees for AvgFee protocol (always persisted, like old Validity)
+        READWRITE(VARINT_MODE(obj.nFees, VarIntMode::NONNEGATIVE_SIGNED));
     }
 
     uint256 ConstructBlockHash() const

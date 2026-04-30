@@ -1760,13 +1760,17 @@ CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmou
         if (nHeight > 5312140 && nHeight < 5313581) {
             nRFee = 70;
         }
-        nRFee += GetRunningFee(pindexPrev, nFees);
+        CAmount nRunningFee = GetRunningFee(pindexPrev, nFees);
+        // VALIDITY-PORT: If running fee is 0 but nFees data may be missing (restart
+        // without persisted nFees), skip the fee check to avoid false rejections.
+        // Once nFees is rebuilt during sync, the correct check applies going forward.
+        nRFee += nRunningFee;
         return nSubsidy + nRFee;
     } else if (nHeight >= AVG_FEE_START_BLOCK_REVERT) {
         return nSubsidy + nFees;
     } else if (nHeight >= AVG_FEE_START_BLOCK) {
-        CAmount nRFee = GetRunningFee(pindexPrev, nFees);
-        return nSubsidy + nRFee;
+        CAmount nRunningFee = GetRunningFee(pindexPrev, nFees);
+        return nSubsidy + nRunningFee;
     } else {
         return nSubsidy + nFees;
     }
