@@ -128,9 +128,10 @@ public:
         consensus.sDevFundScript = "a914622b2274e97ebce0b25a5316ceca0af02120395087";
         consensus.nDevFundPaymentInterval = 10080;
 
-        // VALIDITY-PORT: Set to zero for initial sync — PoS chains have low cumulative work
-        // which causes pre-sync to loop. Can be raised once chain is validated.
-        consensus.nMinimumChainWork = uint256S("0x00");
+        // VALIDITY-PORT: Pinned to the chainwork at block 5313600 (matches defaultAssumeValid).
+        // Validity is PoS with ~2^71 cumulative work at tip, far below Bitcoin mainnet's ~2^98,
+        // so we cannot reuse Bitcoin Core's default. Update both values together on each release.
+        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000006cab41535cadf6cb06"); // chainwork at block 5313600
         consensus.defaultAssumeValid = uint256S("0xc1b0258f6209ecd4dcdfc4f9d8b35a3fe0a80de02a320929432f038c973cf78f"); // block 5313600
 
         /**
