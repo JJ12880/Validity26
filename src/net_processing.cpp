@@ -1658,23 +1658,25 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
         }
     }
 
-    // VALIDITY-PORT: Set nFlags for blocks from old Validity peers.
-    // Old Validity doesn't send nFlags, so detect PoS from block content:
-    // PoS blocks have vtx[1] as a coinstake transaction.
-    std::shared_ptr<CBlock> pblock_mutable = std::const_pointer_cast<CBlock>(pblock);
-    bool old_client = pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000;
-
-    if (old_client && pblock_mutable->vtx.size() > 1 && pblock_mutable->vtx[1]->IsCoinStake())
-        pblock_mutable->nFlags = CBlockIndex::BLOCK_PROOF_OF_STAKE;
-
-    // Avoid implicit conversions
-    const std::shared_ptr<const CBlock> pblock_const = std::const_pointer_cast<const CBlock>(pblock_mutable);
-    // */
+    // VALIDITY-PORT: Derive nFlags from block content for old Validity peers that
+    // didn't send nFlags on the wire. We do this on a LOCAL copy of the header,
+    // NOT by const_pointer_cast-ing the shared pblock. Mutating a shared_ptr<const>
+    // is a race hazard: another code path holding the same shared_ptr could observe
+    // a partial update. AcceptBlockHeader reads nFlags from the header we pass it
+    // and stores the result on the CBlockIndex entry, so setting the bit on this
+    // local copy is sufficient — the block index entry persists the classification,
+    // and downstream block-level code uses the content-based block.IsProofOfStake()
+    // (which checks vtx[1]->IsCoinStake()) rather than the header's nFlags.
+    bool old_client = pfrom.nVersion < POSMARKER_VERSION;
+    CBlockHeader header_for_accept = *pblock;
+    if (old_client && pblock->IsProofOfStake()) {
+        header_for_accept.nFlags |= CBlockIndex::BLOCK_PROOF_OF_STAKE;
+    }
 
     // Process the header before processing the block
     const CBlockIndex *pindex = nullptr;
     BlockValidationState state;
-    if (!ProcessNetBlockHeaders(pfrom, {*pblock_const}, min_pow_checked, state, old_client, &pindex)) {
+    if (!ProcessNetBlockHeaders(pfrom, {header_for_accept}, min_pow_checked, state, old_client, &pindex)) {
         if (state.IsInvalid()) {
             MaybePunishNodeForBlock(pfrom.GetId(), state, false, strprintf("Peer %d sent us invalid header\n", pfrom.GetId()));
             return error("%s: invalid header received", __func__);
@@ -1706,7 +1708,7 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
         }
     }
 
-    if (!m_chainman.ProcessNewBlock(pblock_const, force_processing, min_pow_checked, new_block))
+    if (!m_chainman.ProcessNewBlock(pblock, force_processing, min_pow_checked, new_block))
         return error("%s: ProcessNewBlock FAILED", __func__);
 
     return true;
@@ -3192,16 +3194,16 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
 
     // Now process all the headers.
     BlockValidationState state;
-    // VALIDITY-PORT: Treat old Validity peers (99xxx) as old clients for header validation
-    if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000, &pindexLast)) {
+    // VALIDITY-PORT: Treat old Validity peers (< POSMARKER_VERSION) as old clients
+    // ONLY for header serialization format (no nFlags). Header validation failures
+    // are punished uniformly regardless of peer version: the previous unconditional
+    // bypass for old peers was a free header-spam DoS vector. Checkpoint enforcement
+    // and nBits checks in ContextualCheckBlockHeader catch malicious headers; the
+    // root cause of the prior "false positive" sync issues was nMinimumChainWork
+    // being set to 0x00 (now pinned to block 5313600's chainwork in chainparams).
+    if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion < POSMARKER_VERSION, &pindexLast)) {
         if (state.IsInvalid()) {
-            // VALIDITY-PORT: Don't ban old Validity peers for header validation failures
-            // during initial sync — difficulty retargeting differences cause false positives
-            if (pfrom.nVersion >= 99000) {
-                LogPrintf("VALIDITY: header validation failed from old peer=%d: %s (not banning)\n", pfrom.GetId(), state.ToString());
-            } else {
-                MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
-            }
+            MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
             return;
         }
     }
@@ -3590,11 +3592,11 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
     if (peer == nullptr) return;
 
     // peercoin: set/unset deserialization mode to read PoS flag in headers
-    // VALIDITY-PORT: Old Validity peers (99xxx) don't send nFlags in headers either
-    if (pfrom.nVersion <= OLD_VERSION || pfrom.nVersion >= 99000)
-        vRecv.SetType(vRecv.GetType() & ~SER_POSMARKER);
-    else
+    // VALIDITY-PORT: Only read nFlags from peers that support POSMARKER (v26+)
+    if (pfrom.nVersion >= POSMARKER_VERSION)
         vRecv.SetType(vRecv.GetType() | SER_POSMARKER);
+    else
+        vRecv.SetType(vRecv.GetType() & ~SER_POSMARKER);
 
     if (msg_type == NetMsgType::VERSION) {
         if (pfrom.nVersion != 0) {
@@ -3679,9 +3681,9 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 
         const CNetMsgMaker msg_maker(greatest_common_version);
 
-        // VALIDITY-PORT: Old Validity nodes (protocol >= 99000) don't understand
+        // VALIDITY-PORT: Old Validity nodes (protocol < POSMARKER_VERSION) don't understand
         // wtxidrelay or sendaddrv2 and will disconnect if they receive them.
-        bool fOldValidityPeer = (nVersion >= 99000);
+        bool fOldValidityPeer = (nVersion < POSMARKER_VERSION);
 
         if (greatest_common_version >= WTXID_RELAY_VERSION && !fOldValidityPeer) {
             m_connman.PushMessage(&pfrom, msg_maker.Make(NetMsgType::WTXIDRELAY));
@@ -4636,7 +4638,7 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 
         const CBlockIndex *pindex = nullptr;
         BlockValidationState state;
-        if (!ProcessNetBlockHeaders(pfrom, {cmpctblock.header}, /*min_pow_checked=*/true, state, pfrom.nVersion <= OLD_VERSION, &pindex)) {
+        if (!ProcessNetBlockHeaders(pfrom, {cmpctblock.header}, /*min_pow_checked=*/true, state, pfrom.nVersion < POSMARKER_VERSION, &pindex)) {
             if (state.IsInvalid()) {
                 MaybePunishNodeForBlock(pfrom.GetId(), state, /*via_compact_block=*/true, "invalid header via cmpctblock");
                 return;
@@ -5326,8 +5328,21 @@ bool PeerManagerImpl::ProcessMessages(CNode* pfrom, std::atomic<bool>& interrupt
         if (m_orphanage.HaveTxToReconsider(peer->m_id)) fMoreWork = true;
     } catch (const std::exception& e) {
         LogPrint(BCLog::NET, "%s(%s, %u bytes): Exception '%s' (%s) caught\n", __func__, SanitizeString(msg.m_type), msg.m_message_size, e.what(), typeid(e).name());
+        // VALIDITY-PORT: A deserialization failure (std::ios_base::failure) or any
+        // other exception thrown while parsing a peer's message means the peer
+        // sent us something we could not process. Previously the exception was
+        // caught silently, leaving the peer connected and free to retry — a
+        // DoS channel where an attacker could spam malformed messages forever.
+        // Apply a small Misbehaving score so the peer accumulates toward the
+        // standard 100-point disconnect threshold: 10 points per failure gives
+        // roughly 10 chances before a disconnect. Legitimate peers should not
+        // trigger this path in normal operation.
+        if (peer) Misbehaving(*peer, 10, "exception processing message");
     } catch (...) {
         LogPrint(BCLog::NET, "%s(%s, %u bytes): Unknown exception caught\n", __func__, SanitizeString(msg.m_type), msg.m_message_size);
+        // VALIDITY-PORT: Same rationale as the std::exception catch above —
+        // bound the retry budget on anything that breaks peer message processing.
+        if (peer) Misbehaving(*peer, 10, "unknown exception processing message");
     }
 
     return fMoreWork;
