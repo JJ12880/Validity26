@@ -1719,17 +1719,18 @@ CAmount GetDevSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-// VALIDITY-PORT: Extract dev fund payment from coinstake outputs
+// VALIDITY-PORT: Extract dev fund payment from coinstake outputs.
+// Matches old Validity main.cpp:GetTxDevSubsidy exactly: dev fund coinstakes have
+// exactly 3 outputs [empty, stake, devfund] and the dev fund script is at vout[2].
+// Do NOT loosen this check to vout.size() >= 3 or to search other positions — the
+// live chain was built under the strict rule, and any relaxation would create a
+// consensus divergence with the existing network.
 static CAmount GetTxDevSubsidy(const std::vector<CTxOut>& vout, const Consensus::Params& consensusParams)
 {
-    if (vout.size() < 3 || consensusParams.sDevFundScript.empty())
+    if (vout.size() != 3 || consensusParams.sDevFundScript.empty())
         return 0;
-    // VALIDITY-PORT: Search all outputs for the dev fund script
-    // (allows voluntary donation output alongside mandatory dev fund)
-    for (size_t i = 2; i < vout.size(); i++) {
-        if (HexStr(vout[i].scriptPubKey) == consensusParams.sDevFundScript)
-            return vout[i].nValue;
-    }
+    if (HexStr(vout[2].scriptPubKey) == consensusParams.sDevFundScript)
+        return vout[2].nValue;
     return 0;
 }
 
@@ -1795,12 +1796,24 @@ CAmount GetProofOfWorkSubsidy(int nHeight)
 // VALIDITY-PORT: Full PoS reward schedule from validity-ref
 CAmount GetProofOfStakeSubsidy(int nHeight)
 {
-    CAmount nSubsidy = 5 * COIN;
+    // VALIDITY-PORT: Initial default is 0 (safe "no subsidy"), not 5 * COIN.
+    // All reachable heights are covered by explicit branches below; this
+    // default exists only as a defensive floor against a future maintainer
+    // accidentally introducing a gap. 0 is safe because it can only cause
+    // under-payment (staker revenue loss, no consensus break); a non-zero
+    // default could cause over-payment and silent validation failures.
+    CAmount nSubsidy = 0;
     // VALIDITY-PORT: Read from consensus params instead of hardcoding
     const int DEV_FUND_BLOCK_HEIGHT = Params().GetConsensus().nDevFundBlockHeight;
     static const CAmount nYear = 525600; // ~blocks per year
 
-    if (nHeight >= 0 && nHeight <= 2779) {
+    if (nHeight >= 0 && nHeight <= 2879) {
+        // Pre-PoS era: heights 0-2879 are PoW blocks (block 2879 = "last pow"
+        // per checkpoints, block 2880 = "first pos"). PoS subsidy is meaningless
+        // here. The original port had <= 2779 which left heights 2780-2879
+        // falling through to the initial nSubsidy default; that default was
+        // 5 * COIN by accident (matching the 30241-337999 range's value).
+        // Correct bound is 2879 to align with the actual PoW/PoS boundary.
         nSubsidy = 0;
     } else if (nHeight >= 2880 && nHeight <= 30240) {
         nSubsidy = 25 * COIN;
