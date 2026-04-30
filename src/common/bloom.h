@@ -64,7 +64,32 @@ public:
     CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweak, unsigned char nFlagsIn);
     CBloomFilter() : nHashFuncs(0), nTweak(0), nFlags(0) {}
 
-    SERIALIZE_METHODS(CBloomFilter, obj) { READWRITE(obj.vData, obj.nHashFuncs, obj.nTweak, obj.nFlags); }
+    // VALIDITY-PORT: Custom Serialize/Unserialize (replacing SERIALIZE_METHODS)
+    // so that vData's deserialized size is bounded at MAX_BLOOM_FILTER_SIZE by
+    // the stream reader itself. The default std::vector<unsigned char> Unserialize
+    // caps the incoming size at MAX_SIZE (32 MB), which would let a peer trigger
+    // a ~32 MB allocation per FILTERLOAD message before the handler's
+    // IsWithinSizeConstraints() post-check could reject it. An oversized filter
+    // now throws std::ios_base::failure during deserialization; the exception
+    // propagates to ProcessMessages' catch block which applies Misbehaving per
+    // the Finding #44 fix. Upstream Bitcoin Core 26.2 has the same latent issue.
+    template <typename Stream>
+    void Serialize(Stream& s) const
+    {
+        s << vData << nHashFuncs << nTweak << nFlags;
+    }
+
+    template <typename Stream>
+    void Unserialize(Stream& s)
+    {
+        size_t size = ReadCompactSize(s);
+        if (size > MAX_BLOOM_FILTER_SIZE) {
+            throw std::ios_base::failure("CBloomFilter::Unserialize(): vData exceeds MAX_BLOOM_FILTER_SIZE");
+        }
+        vData.resize(size);
+        if (size != 0) s.read(MakeWritableByteSpan(vData));
+        s >> nHashFuncs >> nTweak >> nFlags;
+    }
 
     void insert(Span<const unsigned char> vKey);
     void insert(const COutPoint& outpoint);
