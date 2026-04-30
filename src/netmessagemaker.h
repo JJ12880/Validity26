@@ -19,8 +19,9 @@ public:
     {
         CSerializedNetMsg msg;
         msg.m_type = std::move(msg_type);
-        // Blackcoin ToDo: revert after nodes upgrade to current version
-        int32_t serModes = nVersion <= OLD_VERSION ? SER_NETWORK : SER_NETWORK | SER_POSMARKER;
+        // VALIDITY-PORT: Only use SER_POSMARKER (nFlags in headers) for v26+ peers.
+        // Old Validity v13 peers (protocol 99008) don't understand the extra field.
+        int32_t serModes = nVersion >= POSMARKER_VERSION ? SER_NETWORK | SER_POSMARKER : SER_NETWORK;
         VectorWriter{serModes, msg.data, 0, std::forward<Args>(args)...};
         return msg;
     }

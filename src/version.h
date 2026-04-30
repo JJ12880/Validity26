@@ -9,17 +9,21 @@
  * network protocol versioning
  */
 
-// VALIDITY-PORT: Must match Validity network's expected protocol version
-static const int PROTOCOL_VERSION = 99008;
+// VALIDITY-PORT: v26 protocol version (bumped from 99008 to distinguish from v13 nodes)
+static const int PROTOCOL_VERSION = 99009;
 
 //! peercoin: used to communicate with clients that don't know how to send PoS information in headers
 static const int OLD_VERSION = 70015;
+
+//! Minimum version that supports SER_POSMARKER (nFlags in block headers).
+//! Peers below this version use legacy serialization without nFlags.
+static const int POSMARKER_VERSION = 99009;
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
 
 //! disconnect from peers older than this proto version
-// VALIDITY-PORT: Accept old Validity peers
+// VALIDITY-PORT: Accept old Validity v13 peers (protocol 99008)
 static const int MIN_PEER_PROTO_VERSION = 99008;
 
 //! BIP 0031, pong message, is enabled for all versions AFTER this one
