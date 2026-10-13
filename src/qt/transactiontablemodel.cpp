@@ -15,12 +15,14 @@
 #include <qt/transactionrecord.h>
 #include <qt/walletmodel.h>
 
+#include <chainparams.h>
 #include <core_io.h>
 #include <interfaces/handler.h>
 #include <tinyformat.h>
 #include <uint256.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 
 #include <QColor>
@@ -208,6 +210,12 @@ public:
                 TransactionRecord *rec = &cachedWallet[i];
                 rec->status.needsUpdate = true;
             }
+            // VALIDITY: updateConfirmations() no longer invalidates every row, so notify views
+            // (and filter proxies) of this tx's rows directly. This is what makes e.g. an
+            // abandoned/orphaned coinstake drop out of views that hide inactive transactions.
+            if (inModel) {
+                parent->emitRowsChanged(lowerIndex, upperIndex - 1);
+            }
             break;
         }
     }
@@ -287,18 +295,43 @@ void TransactionTableModel::updateTransaction(const QString &hash, int status, b
     priv->updateWallet(walletModel->wallet(), updated, status, showTransaction);
 }
 
+void TransactionTableModel::emitRowsChanged(int first, int last)
+{
+    // VALIDITY: Status..ToAddress spans the Date column too, whose sort key embeds the
+    // block height, so sorted proxies re-sort a row once it confirms.
+    Q_EMIT dataChanged(index(first, Status), index(last, ToAddress));
+}
+
 void TransactionTableModel::updateConfirmations()
 {
-    // VALIDITY-PORT: Only invalidate rows that could actually change (recent transactions).
-    // Deeply confirmed transactions (>120 confirmations) will never change status.
-    // This avoids O(N) re-filter/re-sort on every block for large wallets.
-    int nRows = priv->size();
-    if (nRows == 0) return;
-
-    // Only update the most recent 50 rows — covers all unconfirmed/recently confirmed txs.
-    // Transactions are sorted newest-first, so row 0 is the most recent.
-    int nUpdateRows = std::min(nRows, 50);
-    Q_EMIT dataChanged(index(0, Status), index(nUpdateRows - 1, ToAddress));
+    // VALIDITY: Blocks came in since last poll. Upstream invalidates every row, which makes
+    // filter proxies re-read (and re-lock the wallet for) every transaction on each block;
+    // staking wallets hold 100k+ coinstakes. Only invalidate rows whose status can still
+    // change with new blocks. The cache is ordered by tx hash, not by time, so scan it
+    // (memory only, no locks) and emit one dataChanged per contiguous run of such rows.
+    //
+    // Abandoned and NotAccepted (orphaned coinstake) rows only change through wallet
+    // tx-state changes, which arrive as CT_UPDATED and are handled in updateWallet().
+    static const int depth_threshold = 2 * std::max<int>(Params().GetConsensus().nCoinbaseMaturity + 1,
+                                                          int{TransactionRecord::RecommendedNumConfirmations});
+    const QList<TransactionRecord>& records = priv->cachedWallet;
+    int run_start = -1;
+    for (int i = 0; i <= records.size(); ++i) {
+        bool changeable = false;
+        if (i < records.size()) {
+            const TransactionStatus& status = records[i].status;
+            changeable = status.needsUpdate || status.m_cur_block_hash.IsNull() ||
+                         (status.status != TransactionStatus::Abandoned &&
+                          status.status != TransactionStatus::NotAccepted &&
+                          std::abs(status.depth) < depth_threshold);
+        }
+        if (changeable && run_start < 0) {
+            run_start = i;
+        } else if (!changeable && run_start >= 0) {
+            emitRowsChanged(run_start, i - 1);
+            run_start = -1;
+        }
+    }
 }
 
 int TransactionTableModel::rowCount(const QModelIndex &parent) const

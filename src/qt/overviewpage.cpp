@@ -17,6 +17,7 @@
 #include <qt/walletmodel.h>
 
 #include <QAbstractItemDelegate>
+#include <QAbstractProxyModel>
 #include <QApplication>
 #include <QDateTime>
 #include <QPainter>
@@ -149,6 +150,76 @@ private:
 
 #include <qt/overviewpage.moc>
 
+// VALIDITY: Exposes only the first `limit` rows of its source model (the date-sorted
+// TransactionFilterProxy), so the "Recent transactions" view only ever holds NUM_ITEMS
+// rows. Replaces hiding view rows with setRowHidden(), which was O(N) and left rows
+// beyond the first few visible. Any structural change in the source resets this tiny
+// model (cheap at NUM_ITEMS rows), so views never see inserts/removes past the limit.
+class TransactionRowLimitProxy : public QAbstractProxyModel
+{
+public:
+    explicit TransactionRowLimitProxy(int limit, QObject* parent = nullptr)
+        : QAbstractProxyModel(parent), m_limit(limit) {}
+
+    void setSourceModel(QAbstractItemModel* source) override
+    {
+        beginResetModel();
+        if (sourceModel()) sourceModel()->disconnect(this);
+        QAbstractProxyModel::setSourceModel(source);
+        if (source) {
+            auto begin_reset = [this] { beginResetModel(); };
+            auto end_reset = [this] { endResetModel(); };
+            connect(source, &QAbstractItemModel::rowsAboutToBeInserted, this, begin_reset);
+            connect(source, &QAbstractItemModel::rowsInserted, this, end_reset);
+            connect(source, &QAbstractItemModel::rowsAboutToBeRemoved, this, begin_reset);
+            connect(source, &QAbstractItemModel::rowsRemoved, this, end_reset);
+            connect(source, &QAbstractItemModel::rowsAboutToBeMoved, this, begin_reset);
+            connect(source, &QAbstractItemModel::rowsMoved, this, end_reset);
+            connect(source, &QAbstractItemModel::layoutAboutToBeChanged, this, begin_reset);
+            connect(source, &QAbstractItemModel::layoutChanged, this, end_reset);
+            connect(source, &QAbstractItemModel::modelAboutToBeReset, this, begin_reset);
+            connect(source, &QAbstractItemModel::modelReset, this, end_reset);
+            connect(source, &QAbstractItemModel::dataChanged, this,
+                    [this](const QModelIndex& top_left, const QModelIndex& bottom_right, const QVector<int>& roles) {
+                        if (top_left.row() >= m_limit) return;
+                        const int last = std::min(bottom_right.row(), m_limit - 1);
+                        Q_EMIT dataChanged(index(top_left.row(), top_left.column()), index(last, bottom_right.column()), roles);
+                    });
+        }
+        endResetModel();
+    }
+
+    QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override
+    {
+        if (parent.isValid() || row < 0 || row >= rowCount() || column < 0 || column >= columnCount()) return {};
+        return createIndex(row, column);
+    }
+    QModelIndex parent(const QModelIndex&) const override { return {}; }
+    int rowCount(const QModelIndex& parent = QModelIndex()) const override
+    {
+        if (parent.isValid() || !sourceModel()) return 0;
+        return std::min(sourceModel()->rowCount(), m_limit);
+    }
+    int columnCount(const QModelIndex& parent = QModelIndex()) const override
+    {
+        if (parent.isValid() || !sourceModel()) return 0;
+        return sourceModel()->columnCount();
+    }
+    QModelIndex mapToSource(const QModelIndex& proxy_index) const override
+    {
+        if (!proxy_index.isValid() || !sourceModel()) return {};
+        return sourceModel()->index(proxy_index.row(), proxy_index.column());
+    }
+    QModelIndex mapFromSource(const QModelIndex& source_index) const override
+    {
+        if (!source_index.isValid() || source_index.row() >= m_limit) return {};
+        return index(source_index.row(), source_index.column());
+    }
+
+private:
+    const int m_limit;
+};
+
 OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::OverviewPage),
@@ -178,8 +249,8 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
 {
-    if(filter)
-        Q_EMIT transactionClicked(filter->mapToSource(index));
+    if (filter && m_limit_proxy)
+        Q_EMIT transactionClicked(filter->mapToSource(m_limit_proxy->mapToSource(index)));
 }
 
 void OverviewPage::setPrivacy(bool privacy)
@@ -292,20 +363,21 @@ void OverviewPage::setWalletModel(WalletModel *model)
         // Set up transaction list
         filter.reset(new TransactionFilterProxy());
         filter->setSourceModel(model->getTransactionTableModel());
-        // VALIDITY-PORT: Disable dynamic re-sort on dataChanged to prevent O(N) work per block.
-        // The overview only shows 5 most recent — sort order doesn't change with confirmations.
-        filter->setDynamicSortFilter(false);
+        // VALIDITY: Dynamic sort/filter is required so new transactions land at the top and
+        // status changes (e.g. orphaned stakes) re-filter. It is cheap now that
+        // TransactionTableModel::updateConfirmations() only invalidates rows that can change.
+        filter->setDynamicSortFilter(true);
         filter->setSortRole(Qt::EditRole);
         filter->setShowInactive(false);
         filter->sort(TransactionTableModel::Date, Qt::DescendingOrder);
 
-        ui->listTransactions->setModel(filter.get());
+        // VALIDITY: Only expose the NUM_ITEMS most recent rows to the view.
+        m_limit_proxy.reset(new TransactionRowLimitProxy(NUM_ITEMS));
+        m_limit_proxy->setSourceModel(filter.get());
+
+        ui->listTransactions->setModel(m_limit_proxy.get());
         ui->listTransactions->setModelColumn(TransactionTableModel::ToAddress);
 
-        connect(filter.get(), &TransactionFilterProxy::rowsInserted, this, &OverviewPage::LimitTransactionRows);
-        connect(filter.get(), &TransactionFilterProxy::rowsRemoved, this, &OverviewPage::LimitTransactionRows);
-        connect(filter.get(), &TransactionFilterProxy::rowsMoved, this, &OverviewPage::LimitTransactionRows);
-        LimitTransactionRows();
         // Keep up to date with wallet
         setBalance(model->getCachedBalance());
         connect(model, &WalletModel::balanceChanged, this, &OverviewPage::setBalance);
@@ -332,21 +404,6 @@ void OverviewPage::changeEvent(QEvent* e)
     }
 
     QWidget::changeEvent(e);
-}
-
-// VALIDITY-PORT: Only show most recent NUM_ITEMS rows.
-// Optimized to avoid O(N) loop over all rows — only touch the boundary.
-void OverviewPage::LimitTransactionRows()
-{
-    if (filter && ui->listTransactions && ui->listTransactions->model() && filter.get() == ui->listTransactions->model()) {
-        int nRows = filter->rowCount();
-        // Only need to show first NUM_ITEMS and hide the one right after (if any).
-        // Qt's default is visible, so newly inserted rows at the top are already visible.
-        // We just need to hide row NUM_ITEMS when it appears.
-        for (int i = 0; i < std::min(nRows, NUM_ITEMS + 2); ++i) {
-            ui->listTransactions->setRowHidden(i, i >= NUM_ITEMS);
-        }
-    }
 }
 
 void OverviewPage::updateDisplayUnit()

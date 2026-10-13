@@ -106,6 +106,8 @@ private:
     QVariant txStatusDecoration(const TransactionRecord *wtx) const;
     QVariant txWatchonlyDecoration(const TransactionRecord *wtx) const;
     QVariant txAddressDecoration(const TransactionRecord *wtx) const;
+    /** VALIDITY: Emit dataChanged (Status..ToAddress) for source rows [first, last]. */
+    void emitRowsChanged(int first, int last);
 
 public Q_SLOTS:
     /* New transaction, or transaction changed status */

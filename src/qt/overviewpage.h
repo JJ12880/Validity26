@@ -12,6 +12,7 @@
 
 class ClientModel;
 class TransactionFilterProxy;
+class TransactionRowLimitProxy;
 class TxViewDelegate;
 class PlatformStyle;
 class WalletModel;
@@ -58,9 +59,11 @@ private:
 
     TxViewDelegate *txdelegate;
     std::unique_ptr<TransactionFilterProxy> filter;
+    // VALIDITY: Caps the recent transactions list at NUM_ITEMS rows (declared after
+    // `filter` so it is destroyed first).
+    std::unique_ptr<TransactionRowLimitProxy> m_limit_proxy;
 
 private Q_SLOTS:
-    void LimitTransactionRows();
     void updateDisplayUnit();
     void handleTransactionClicked(const QModelIndex &index);
     void updateAlerts(const QString &warnings);

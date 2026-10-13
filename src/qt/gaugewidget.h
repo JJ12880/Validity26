@@ -36,6 +36,8 @@ public:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void showEvent(QShowEvent* event) override;   // VALIDITY: resume spinner timer
+    void hideEvent(QHideEvent* event) override;   // VALIDITY: pause spinner timer
 
 private:
     double m_value = 0.0;
@@ -50,6 +52,7 @@ private:
     bool m_spinning = false;
     double m_spinAngle = 0.0;
     QTimer* m_spinTimer{nullptr};
+    bool m_shown{false};  // VALIDITY: between showEvent and hideEvent (incl. minimize)
 
     static constexpr double ARC_START = 225.0;
     static constexpr double ARC_SPAN = -270.0;

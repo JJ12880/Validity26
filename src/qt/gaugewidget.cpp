@@ -6,6 +6,8 @@
 
 #include <QPainter>
 #include <QPainterPath>
+#include <QHideEvent>
+#include <QShowEvent>
 #include <QFontMetrics>
 #include <cmath>
 
@@ -82,12 +84,31 @@ void GaugeWidget::setSpinning(bool spinning)
 {
     m_spinning = spinning;
     m_spinAngle = 0.0;
-    if (spinning) {
+    // VALIDITY: only animate while shown; showEvent() restarts the timer
+    if (spinning && m_shown) {
         m_spinTimer->start(30); // ~33fps
     } else {
         m_spinTimer->stop();
     }
     update();
+}
+
+void GaugeWidget::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    m_shown = true;
+    // VALIDITY: resume the spinner animation if still spinning
+    if (m_spinning && !m_spinTimer->isActive()) {
+        m_spinTimer->start(30);
+    }
+}
+
+void GaugeWidget::hideEvent(QHideEvent* event)
+{
+    QWidget::hideEvent(event);
+    m_shown = false;
+    // VALIDITY: no point repainting a hidden gauge every 30ms
+    m_spinTimer->stop();
 }
 
 QSize GaugeWidget::minimumSizeHint() const

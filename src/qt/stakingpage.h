@@ -5,6 +5,8 @@
 #ifndef BITCOIN_QT_STAKINGPAGE_H
 #define BITCOIN_QT_STAKINGPAGE_H
 
+#include <QElapsedTimer>
+#include <QString>
 #include <QWidget>
 #include <consensus/amount.h>
 
@@ -14,6 +16,8 @@ class PlatformStyle;
 class WalletModel;
 
 QT_BEGIN_NAMESPACE
+class QHideEvent;
+class QShowEvent;
 class QTimer;
 QT_END_NAMESPACE
 
@@ -32,6 +36,11 @@ public:
     void setClientModel(ClientModel* clientModel);
     void setWalletModel(WalletModel* walletModel);
 
+protected:
+    // VALIDITY: Timers and wallet queries only run while the page is shown.
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
+
 private:
     Ui::StakingPage* ui;
     ClientModel* clientModel{nullptr};
@@ -40,6 +49,8 @@ private:
     QTimer* m_refresh_timer{nullptr};
     QTimer* m_stake_timer{nullptr};
     QTimer* m_anim_timer{nullptr};
+    QTimer* m_report_timer{nullptr};     // VALIDITY: coalesces staking report refreshes
+    QTimer* m_spinner_timeout{nullptr};  // VALIDITY: gives up on the spinner if staking never starts
     GaugeWidget* m_gaugeNetworkShare{nullptr};
     GaugeWidget* m_gaugeNetworkWeight{nullptr};
     GaugeWidget* m_gaugeAPR{nullptr};
@@ -48,6 +59,15 @@ private:
     double m_expectedStakeTime{0};
     double m_stakeTimerMax{0};
     double m_stakeTimerElapsed{0};
+    QElapsedTimer m_stakeTimerClock;     // VALIDITY: countdown survives the page being hidden
+
+    // VALIDITY: Page visibility / refresh bookkeeping
+    bool m_page_visible{false};
+    bool m_anim_paused{false};
+    bool m_report_dirty{true};
+    int m_refresh_count{0};
+    QElapsedTimer m_last_report;
+    QString m_status_style;
 
     // Animation state
     bool m_wasStaking{false};
@@ -60,6 +80,10 @@ private:
     static constexpr int ANIM_SWEEP_DOWN = 20;   // ~1.0s empty to 0%
     // Fill-to-target animation after spinner stops
     static constexpr int ANIM_FILL_TARGET = 25;  // ~1.25s fill to target
+    // VALIDITY: Give up waiting for staking to start after this long
+    static constexpr int SPINNER_TIMEOUT_MS = 60 * 1000;
+    // VALIDITY: Minimum spacing between balance-triggered staking report refreshes
+    static constexpr int REPORT_MIN_INTERVAL_MS = 30 * 1000;
 
     // Cached target values for post-animation
     double m_targetShare{0};
@@ -72,8 +96,11 @@ private:
 
     void updateStakingStatus();
     void updateStakingReport();
+    void scheduleStakingReport();
     void resetStakeTimer(double expectedSeconds);
     void startGaugeSweepAnimation();
+    void exitSpinnerMode();
+    void setStakingStatusLabel(const QString& text, const QString& style);
 
 private Q_SLOTS:
     void onBalanceChanged();
@@ -81,6 +108,7 @@ private Q_SLOTS:
     void onTimerRefresh();
     void onStakeTimerTick();
     void onAnimationTick();
+    void onSpinnerTimeout();
     void onUnlockForStakingClicked();
     void onStopStakingClicked();
     void onSetReserveClicked();

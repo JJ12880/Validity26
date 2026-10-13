@@ -48,6 +48,7 @@ namespace interfaces {
 class Handler;
 struct WalletAddress;
 struct WalletBalances;
+struct WalletStakeReport;
 struct WalletTx;
 struct WalletTxOut;
 struct WalletTxStatus;
@@ -277,6 +278,10 @@ public:
     //! Get wallet enabled for staking
     virtual bool getEnabledStaking() = 0;
 
+    //! VALIDITY: Sum staking/minting rewards of coinstake and coinbase transactions that
+    //! are in the active chain, bucketed by age relative to `now`, without blocking.
+    virtual bool tryGetStakeReport(WalletStakeReport& report, int64_t now) = 0;
+
     //! Return whether is a legacy wallet
     virtual bool isLegacy() = 0;
 
@@ -387,6 +392,16 @@ struct WalletBalances
                unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance ||
                immature_watch_only_balance != prev.immature_watch_only_balance || watch_only_stake != prev.watch_only_stake;
     }
+};
+
+//! VALIDITY: Staking reward totals for the GUI staking report.
+struct WalletStakeReport
+{
+    CAmount last_24h = 0;
+    CAmount last_7d = 0;
+    CAmount last_30d = 0;
+    CAmount last_1y = 0;
+    CAmount total = 0;
 };
 
 // Wallet transaction information.

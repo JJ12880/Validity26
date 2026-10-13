@@ -190,7 +190,8 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
 #ifdef ENABLE_WALLET
 	if (node::CanStake())
     {
-        QTimer *timerStakingIcon = new QTimer(labelStakingIcon);
+        // VALIDITY: assign the member (was a shadowing local, so join() could never stop it)
+        timerStakingIcon = new QTimer(labelStakingIcon);
         connect(timerStakingIcon, SIGNAL(timeout()), this, SLOT(updateStakingIcon()));
         timerStakingIcon->start(1000);
 

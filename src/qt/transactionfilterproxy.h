@@ -42,7 +42,7 @@ public:
     void setMinAmount(const CAmount& minimum);
     void setWatchOnlyFilter(WatchOnlyFilter filter);
 
-    /** Set whether to show conflicted transactions. */
+    /** Set whether to show conflicted (and not-accepted generated/staked) transactions. */
     void setShowInactive(bool showInactive);
 
 protected:

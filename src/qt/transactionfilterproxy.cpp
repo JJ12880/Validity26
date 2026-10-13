@@ -23,7 +23,9 @@ bool TransactionFilterProxy::filterAcceptsRow(int sourceRow, const QModelIndex &
     QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
 
     int status = index.data(TransactionTableModel::StatusRole).toInt();
-    if (!showInactive && status == TransactionStatus::Conflicted)
+    // VALIDITY: Orphaned coinstakes are reported as NotAccepted ("Generated but not
+    // accepted"), not Conflicted; treat them as inactive too.
+    if (!showInactive && (status == TransactionStatus::Conflicted || status == TransactionStatus::NotAccepted))
         return false;
 
     int type = index.data(TransactionTableModel::TypeRole).toInt();

@@ -12,8 +12,6 @@
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
-#include <qt/transactionrecord.h>
-#include <qt/transactiontablemodel.h>
 #include <qt/walletmodel.h>
 
 #include <chainparams.h>
@@ -26,6 +24,11 @@
 #include <QInputDialog>
 #include <QTimer>
 #include <QDebug>
+#include <QHideEvent>
+#include <QShowEvent>
+
+#include <algorithm>
+#include <cmath>
 
 // Truncate VAL amounts to 4 decimal places for cleaner display
 static QString formatVal4(BitcoinUnit unit, CAmount amount)
@@ -106,6 +109,20 @@ StakingPage::StakingPage(const PlatformStyle* platformStyle, QWidget* parent)
     m_anim_timer = new QTimer(this);
     connect(m_anim_timer, &QTimer::timeout, this, &StakingPage::onAnimationTick);
 
+    // VALIDITY: Periodic status refresh (started/stopped with page visibility)
+    m_refresh_timer = new QTimer(this);
+    connect(m_refresh_timer, &QTimer::timeout, this, &StakingPage::onTimerRefresh);
+
+    // VALIDITY: Single-shot timer that coalesces staking report refreshes
+    m_report_timer = new QTimer(this);
+    m_report_timer->setSingleShot(true);
+    connect(m_report_timer, &QTimer::timeout, this, &StakingPage::updateStakingReport);
+
+    // VALIDITY: Stop the gauge spinners if staking does not start after unlocking
+    m_spinner_timeout = new QTimer(this);
+    m_spinner_timeout->setSingleShot(true);
+    connect(m_spinner_timeout, &QTimer::timeout, this, &StakingPage::onSpinnerTimeout);
+
     connect(ui->btnUnlockStaking, &QPushButton::clicked, this, &StakingPage::onUnlockForStakingClicked);
     connect(ui->btnStopStaking, &QPushButton::clicked, this, &StakingPage::onStopStakingClicked);
     connect(ui->btnSetReserve, &QPushButton::clicked, this, &StakingPage::onSetReserveClicked);
@@ -125,28 +142,84 @@ void StakingPage::setWalletModel(WalletModel* model)
 {
     walletModel = model;
     if (!model) {
-        if (m_refresh_timer) m_refresh_timer->stop();
-        if (m_stake_timer) m_stake_timer->stop();
-        if (m_anim_timer) m_anim_timer->stop();
+        m_refresh_timer->stop();
+        m_stake_timer->stop();
+        m_anim_timer->stop();
+        m_report_timer->stop();
+        m_spinner_timeout->stop();
         return;
     }
 
     connect(model, &WalletModel::balanceChanged, this, &StakingPage::onBalanceChanged);
     connect(model, &WalletModel::encryptionStatusChanged, this, &StakingPage::onEncryptionStatusChanged);
 
-    m_refresh_timer = new QTimer(this);
-    connect(m_refresh_timer, &QTimer::timeout, this, &StakingPage::onTimerRefresh);
-    m_refresh_timer->start(10000);
-
+    m_report_dirty = true;
     onEncryptionStatusChanged();
+
+    // VALIDITY: The rest is deferred to showEvent() if the page is not visible yet.
+    if (m_page_visible) {
+        m_refresh_timer->start(10000);
+        updateStakingStatus();
+        updateStakingReport();
+    }
+}
+
+void StakingPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    m_page_visible = true;
+    if (!walletModel) return;
+
+    m_refresh_timer->start(10000);
+    if (m_anim_paused) {
+        m_anim_paused = false;
+        m_anim_timer->start(50);
+    }
     updateStakingStatus();
-    updateStakingReport();
+    // Resume the countdown (elapsed time is wall-clock based, so it stays accurate)
+    if (m_expectedStakeTime > 0 && !m_spinnerMode && !m_anim_timer->isActive() && !m_stake_timer->isActive()) {
+        m_stake_timer->start(1000);
+        onStakeTimerTick();
+    }
+    if (m_report_dirty) {
+        updateStakingReport();
+    }
+}
+
+void StakingPage::hideEvent(QHideEvent* event)
+{
+    QWidget::hideEvent(event);
+    // VALIDITY: Nothing on this page needs updating while it is not shown.
+    m_page_visible = false;
+    m_refresh_timer->stop();
+    m_stake_timer->stop();
+    m_report_timer->stop();
+    if (m_anim_timer->isActive()) {
+        m_anim_timer->stop();
+        m_anim_paused = true;
+    }
 }
 
 void StakingPage::onBalanceChanged()
 {
-    resetStakeTimer(m_expectedStakeTime);
-    updateStakingReport();
+    // Don't disturb the unlock sweep / spinner animation
+    if (!m_spinnerMode && !m_anim_timer->isActive() && !m_anim_paused) {
+        resetStakeTimer(m_expectedStakeTime);
+    }
+    scheduleStakingReport();
+}
+
+void StakingPage::scheduleStakingReport()
+{
+    // VALIDITY: balanceChanged can fire every block; coalesce report refreshes and space
+    // them at least REPORT_MIN_INTERVAL_MS apart. While hidden, just mark dirty.
+    m_report_dirty = true;
+    if (!m_page_visible || m_report_timer->isActive()) return;
+    int delay = 2000;
+    if (m_last_report.isValid()) {
+        delay = static_cast<int>(std::max<qint64>(delay, REPORT_MIN_INTERVAL_MS - m_last_report.elapsed()));
+    }
+    m_report_timer->start(delay);
 }
 
 void StakingPage::onEncryptionStatusChanged()
@@ -164,20 +237,28 @@ void StakingPage::onEncryptionStatusChanged()
         BitcoinUnit unit = walletModel->getOptionsModel()->getDisplayUnit();
         ui->labelReserveBalance->setText(formatVal4(unit, reserveAmount));
     }
+
+    // VALIDITY: If the wallet was relocked while the gauges wait for staking to start,
+    // leave spinner mode now so "Not staking, wallet locked" is shown.
+    if (status == WalletModel::Locked && (m_spinnerMode || m_anim_timer->isActive() || m_anim_paused)) {
+        exitSpinnerMode();
+        if (m_page_visible) updateStakingStatus();
+    }
 }
 
 void StakingPage::onTimerRefresh()
 {
     updateStakingStatus();
-    static int refreshCount = 0;
-    if (++refreshCount % 6 == 0) {
+    // VALIDITY: per-instance counter (was a function static shared by all wallets)
+    if (++m_refresh_count % 6 == 0) {
         updateStakingReport();
     }
 }
 
 void StakingPage::onStakeTimerTick()
 {
-    m_stakeTimerElapsed += 1.0;
+    // VALIDITY: wall-clock elapsed time, so pausing the tick timer while hidden is harmless
+    m_stakeTimerElapsed = m_stakeTimerClock.isValid() ? m_stakeTimerClock.elapsed() / 1000.0 : m_stakeTimerElapsed + 1.0;
 
     double fraction = (m_stakeTimerMax > 0) ? (m_stakeTimerElapsed / m_stakeTimerMax) : 0.0;
     m_gaugeStakeTimer->setValue(std::min(fraction * 100.0, 100.0));
@@ -197,6 +278,7 @@ void StakingPage::resetStakeTimer(double expectedSeconds)
     m_expectedStakeTime = expectedSeconds;
     m_stakeTimerMax = expectedSeconds * 1.2;
     m_stakeTimerElapsed = 0;
+    m_stakeTimerClock.start();
 
     if (expectedSeconds > 0) {
         m_gaugeStakeTimer->setMaxValue(100.0);
@@ -204,10 +286,12 @@ void StakingPage::resetStakeTimer(double expectedSeconds)
         int mins = (int)(expectedSeconds / 60.0);
         int secs = (int)(expectedSeconds) % 60;
         m_gaugeStakeTimer->setValueText(QString("%1:%2").arg(mins).arg(secs, 2, 10, QChar('0')));
-        if (!m_stake_timer->isActive()) {
+        // VALIDITY: the 1s tick only runs while the page is shown (showEvent resumes it)
+        if (m_page_visible && !m_stake_timer->isActive()) {
             m_stake_timer->start(1000);
         }
     } else {
+        m_stakeTimerClock.invalidate();
         m_stake_timer->stop();
         m_gaugeStakeTimer->setValue(0);
         m_gaugeStakeTimer->setValueText("Not staking");
@@ -303,7 +387,44 @@ void StakingPage::onAnimationTick()
         m_gaugeAPR->setValueText("...");
         m_spinnerMode = true;
         m_anim_timer->stop(); // Stop the animation timer — spinners self-animate via paint
-        // updateStakingStatus() will detect spinnerMode and call stopSpinnersAndFill() when data arrives
+        // updateStakingStatus() will detect spinnerMode and start the fill animation when data arrives
+        // VALIDITY: ...or leave spinner mode if staking cannot start / does not start in time
+        m_spinner_timeout->start(SPINNER_TIMEOUT_MS);
+        if (m_page_visible) updateStakingStatus();
+    }
+}
+
+void StakingPage::exitSpinnerMode()
+{
+    // VALIDITY: Abort the unlock sweep / spinner / fill animation; the next
+    // updateStakingStatus() call shows the normal (non-animated) status.
+    m_anim_timer->stop();
+    m_anim_paused = false;
+    m_spinner_timeout->stop();
+    m_spinnerMode = false;
+    m_gaugeNetworkShare->setSpinning(false);
+    m_gaugeStakeTimer->setSpinning(false);
+    m_gaugeAPR->setSpinning(false);
+    m_gaugeNetworkShare->setMaxValue(100.0);
+    m_gaugeStakeTimer->setMaxValue(100.0);
+}
+
+void StakingPage::onSpinnerTimeout()
+{
+    if (!m_spinnerMode || m_anim_timer->isActive() || m_anim_paused) return; // not waiting (anymore)
+    exitSpinnerMode();
+    if (m_page_visible) updateStakingStatus();
+}
+
+void StakingPage::setStakingStatusLabel(const QString& text, const QString& style)
+{
+    // VALIDITY: Only touch the label when something changed (setStyleSheet forces a re-polish)
+    if (ui->labelStakingActive->text() != text) {
+        ui->labelStakingActive->setText(text);
+    }
+    if (m_status_style != style) {
+        m_status_style = style;
+        ui->labelStakingActive->setStyleSheet(style);
     }
 }
 
@@ -319,6 +440,13 @@ void StakingPage::updateStakingStatus()
         return;
     }
 
+    // VALIDITY: Leave spinner mode if staking cannot start (wallet relocked or staking
+    // disabled); the normal status path below then reports why.
+    if (m_spinnerMode && (walletModel->getEncryptionStatus() == WalletModel::Locked ||
+                          !walletModel->wallet().getEnabledStaking())) {
+        exitSpinnerMode();
+    }
+
     // If spinners are active, check if staking data has arrived
     if (m_spinnerMode) {
         uint64_t nWeight = walletModel->getStakeWeight();
@@ -328,9 +456,12 @@ void StakingPage::updateStakingStatus()
         BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
         ui->labelYourWeight->setText(formatVal4(unit, nWeight));
 
+        // VALIDITY: Fill-to-target animation already running; don't restart it.
+        if (m_anim_timer->isActive()) return;
+
         if (fStaking) {
-            ui->labelStakingActive->setText(tr("Active"));
-            ui->labelStakingActive->setStyleSheet("color: #4ecca3; font-weight: bold; font-size: 16px;");
+            m_spinner_timeout->stop();
+            setStakingStatusLabel(tr("Active"), "color: #4ecca3; font-weight: bold; font-size: 16px;");
 
             // Data arrived! Cache targets, stop spinners, start fill animation
             double nNetworkWeight = 1.1429 * walletModel->node().getPoSKernelPS();
@@ -363,6 +494,9 @@ void StakingPage::updateStakingStatus()
             // Start fill-to-target animation
             m_animStep = 0;
             m_anim_timer->start(50);
+        } else {
+            // VALIDITY: Unlocked but not staking yet; don't keep showing "wallet locked".
+            setStakingStatusLabel(tr("Inactive"), "color: #7a7a96; font-weight: bold; font-size: 16px;");
         }
         return;
     }
@@ -381,14 +515,11 @@ void StakingPage::updateStakingStatus()
 
     // Status label
     if (fStaking) {
-        ui->labelStakingActive->setText(tr("Active"));
-        ui->labelStakingActive->setStyleSheet("color: #4ecca3; font-weight: bold; font-size: 16px;");
+        setStakingStatusLabel(tr("Active"), "color: #4ecca3; font-weight: bold; font-size: 16px;");
     } else if (walletModel->getEncryptionStatus() == WalletModel::Locked) {
-        ui->labelStakingActive->setText(tr("Not staking, wallet locked"));
-        ui->labelStakingActive->setStyleSheet("color: #e8a84e; font-weight: bold; font-size: 16px;");
+        setStakingStatusLabel(tr("Not staking, wallet locked"), "color: #e8a84e; font-weight: bold; font-size: 16px;");
     } else {
-        ui->labelStakingActive->setText(tr("Inactive"));
-        ui->labelStakingActive->setStyleSheet("color: #7a7a96; font-weight: bold; font-size: 16px;");
+        setStakingStatusLabel(tr("Inactive"), "color: #7a7a96; font-weight: bold; font-size: 16px;");
     }
 
     BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
@@ -456,38 +587,32 @@ void StakingPage::updateStakingReport()
 {
     if (!walletModel) return;
 
-    TransactionTableModel* ttm = walletModel->getTransactionTableModel();
-    if (!ttm) return;
-
-    int rows = ttm->rowCount(QModelIndex());
-    CAmount sum24h = 0, sum7d = 0, sum30d = 0, sum1y = 0, sumTotal = 0;
-    qint64 now = QDateTime::currentDateTime().toSecsSinceEpoch();
-
-    for (int i = 0; i < rows; ++i) {
-        QModelIndex idx = ttm->index(i, 0);
-        int type = ttm->data(idx, TransactionTableModel::TypeRole).toInt();
-        if (type != TransactionRecord::Staked && type != TransactionRecord::Generated) continue;
-
-        CAmount amt = ttm->data(idx, TransactionTableModel::AmountRole).toLongLong();
-        if (amt <= 0) continue;
-
-        qint64 txTime = ttm->data(idx, TransactionTableModel::DateRole).toDateTime().toSecsSinceEpoch();
-        if (txTime <= 0) continue;
-
-        sumTotal += amt;
-        qint64 age = now - txTime;
-        if (age <= 365 * 86400) sum1y += amt;
-        if (age <= 30 * 86400)  sum30d += amt;
-        if (age <= 7 * 86400)   sum7d += amt;
-        if (age <= 86400)        sum24h += amt;
+    // VALIDITY: Not shown, so don't compute; showEvent() refreshes if dirty.
+    if (!m_page_visible) {
+        m_report_dirty = true;
+        return;
     }
 
+    // VALIDITY: Computed by the wallet in a single pass over its transactions instead of
+    // walking every TransactionTableModel row on the GUI thread (each row took wallet and
+    // cs_main locks). Orphaned/abandoned/conflicted stakes are excluded.
+    interfaces::WalletStakeReport report;
+    const qint64 now = QDateTime::currentDateTime().toSecsSinceEpoch();
+    if (!walletModel->wallet().tryGetStakeReport(report, now)) {
+        // Wallet busy (e.g. rescan or staking); try again shortly.
+        m_report_dirty = true;
+        if (!m_report_timer->isActive()) m_report_timer->start(2000);
+        return;
+    }
+    m_report_dirty = false;
+    m_last_report.start();
+
     BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
-    ui->labelStaking24h->setText(formatVal4(unit, sum24h));
-    ui->labelStaking7d->setText(formatVal4(unit, sum7d));
-    ui->labelStaking30d->setText(formatVal4(unit, sum30d));
-    ui->labelStaking1y->setText(formatVal4(unit, sum1y));
-    ui->labelStakingTotal->setText(formatVal4(unit, sumTotal));
+    ui->labelStaking24h->setText(formatVal4(unit, report.last_24h));
+    ui->labelStaking7d->setText(formatVal4(unit, report.last_7d));
+    ui->labelStaking30d->setText(formatVal4(unit, report.last_30d));
+    ui->labelStaking1y->setText(formatVal4(unit, report.last_1y));
+    ui->labelStakingTotal->setText(formatVal4(unit, report.total));
 }
 
 void StakingPage::onStopStakingClicked()

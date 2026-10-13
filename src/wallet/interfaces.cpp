@@ -42,6 +42,7 @@ using interfaces::WalletBalances;
 using interfaces::WalletLoader;
 using interfaces::WalletMigrationResult;
 using interfaces::WalletOrderForm;
+using interfaces::WalletStakeReport;
 using interfaces::WalletTx;
 using interfaces::WalletTxOut;
 using interfaces::WalletTxStatus;
@@ -535,6 +536,44 @@ public:
     bool getEnabledStaking() override
     {
         return m_wallet->m_enabled_staking;
+    }
+    bool tryGetStakeReport(WalletStakeReport& report, int64_t now) override
+    {
+        // VALIDITY: One pass over mapWallet so the GUI does not have to walk every
+        // TransactionTableModel row (each taking wallet locks) to build the report.
+        // Amounts match the transaction list: coinstake = credit - debit, coinbase = sum
+        // of our outputs. Rewards not in the active chain (orphaned/abandoned/conflicted)
+        // are excluded.
+        TRY_LOCK(m_wallet->cs_wallet, locked_wallet);
+        if (!locked_wallet) {
+            return false;
+        }
+        report = {};
+        for (const auto& [txid, wtx] : m_wallet->mapWallet) {
+            if (!wtx.IsCoinStake() && !wtx.IsCoinBase()) continue;
+            if (m_wallet->GetTxDepthInMainChain(wtx) <= 0) continue;
+
+            CAmount reward = 0;
+            if (wtx.IsCoinStake()) {
+                reward = CachedTxGetCredit(*m_wallet, wtx, ISMINE_ALL) - CachedTxGetDebit(*m_wallet, wtx, ISMINE_ALL);
+            } else {
+                for (const CTxOut& txout : wtx.tx->vout) {
+                    if (m_wallet->IsMine(txout) != ISMINE_NO) reward += txout.nValue;
+                }
+            }
+            if (reward <= 0) continue;
+
+            const int64_t tx_time = wtx.GetTxTime();
+            if (tx_time <= 0) continue;
+
+            report.total += reward;
+            const int64_t age = now - tx_time;
+            if (age <= 365 * 86400) report.last_1y += reward;
+            if (age <= 30 * 86400) report.last_30d += reward;
+            if (age <= 7 * 86400) report.last_7d += reward;
+            if (age <= 86400) report.last_24h += reward;
+        }
+        return true;
     }
     bool isLegacy() override { return m_wallet->IsLegacy(); }
     std::unique_ptr<Handler> handleUnload(UnloadFn fn) override
