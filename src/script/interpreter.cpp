@@ -1330,10 +1330,9 @@ public:
     void Serialize(S &s) const {
         // Serialize nVersion
         ::Serialize(s, txTo.nVersion);
-        if (txTo.nVersion < 2) {
-            // Serialize nTime
-            ::Serialize(s, txTo.nTime);
-        }
+        // VALIDITY-PORT: the 0.13 client hashes nTime for every tx version. Blackcoin
+        // drops it for nVersion >= 2, which would make v2 signatures verify differently.
+        ::Serialize(s, txTo.nTime);
         // Serialize vin
         unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.vin.size();
         ::WriteCompactSize(s, nInputs);

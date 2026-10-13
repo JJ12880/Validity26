@@ -815,10 +815,8 @@ bool IsSegWitOutput(const SigningProvider& provider, const CScript& script)
 bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, int nHashType, std::map<int, bilingual_str>& input_errors)
 {
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
-	
-	// we don't need nTime anymore
-    if (mtx.nVersion >= 2)
-        mtx.nTime = 0;
+    // VALIDITY-PORT: do not zero nTime for v2 txs (Blackcoin does); Validity keeps nTime
+    // in every transaction and the 0.13 network rejects nTime earlier than the inputs.
 
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.

@@ -174,10 +174,10 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
-    // Blackcoin: in v2 transactions use GetAdjustedTime() as nTimeTx
-    int64_t nTimeTx = tx.nTime;
-    if (!nTimeTx && tx.nVersion >= 2)
-        nTimeTx = GetAdjustedTimeSeconds();
+    // VALIDITY-PORT: Validity serializes nTime in every transaction version, so use it
+    // as-is. Blackcoin's "nTime == 0 means now" fallback would accept transactions the
+    // 0.13 network rejects and make the result depend on the local clock.
+    const int64_t nTimeTx = tx.nTime;
 
     CAmount nValueIn = 0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {

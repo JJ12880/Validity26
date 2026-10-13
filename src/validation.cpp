@@ -708,10 +708,8 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     TxValidationState& state = ws.m_state;
     std::unique_ptr<CTxMemPoolEntry>& entry = ws.m_entry;
 
-    // Blackcoin: in v2 transactions use GetAdjustedTime() as nTimeTx
-    int64_t nTimeTx = (int64_t)tx.nTime;
-    if (!nTimeTx && tx.nVersion >= 2)
-        nTimeTx = GetAdjustedTimeSeconds();
+    // VALIDITY-PORT: nTime is always serialized, so no Blackcoin v2 "zero means now" fallback
+    const int64_t nTimeTx = (int64_t)tx.nTime;
 
     if (!CheckTransaction(tx, state)) {
         return false; // state filled in by CheckTransaction
@@ -2446,7 +2444,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     assert(hashPrevBlock == view.GetBestBlock());
 
     // Check proof-of-stake
-    if (block.IsProofOfStake() && params.GetConsensus().IsProtocolV3(block.GetBlockTime()) && !CheckProofOfStake(pindex->pprev, *block.vtx[1], block.nBits, state, view, block.vtx[1]->nTime ? block.vtx[1]->nTime : block.nTime)) {
+    if (block.IsProofOfStake() && params.GetConsensus().IsProtocolV3(block.GetBlockTime()) && !CheckProofOfStake(pindex->pprev, *block.vtx[1], block.nBits, state, view, block.vtx[1]->nTime)) {
         LogPrintf("WARNING: %s: check proof-of-stake failed for block %s\n", __func__, block.GetHash().ToString());
         return false; // do not error here as we expect this during initial block download
     }
@@ -3975,25 +3973,22 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
             return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-multiple", "more than one coinbase");
 
     // Check coinbase timestamp
-    // VALIDITY-PORT: Skip for PoW blocks — old Validity had a bug where this check
-    // didn't run during the PoW period, so historical PoW blocks may violate it
-    if (!block.IsProofOfWork() && block.GetBlockTime() > FutureDrift(chainstate, block.vtx[0]->nTime ? (int64_t)block.vtx[0]->nTime : block.GetBlockTime()))
+    // VALIDITY-PORT: the 0.13 client skips this check for every block (PoW or PoS) with
+    // time <= 1433342883 (~height 20160) and applies it to everything after. Validity
+    // always serializes tx nTime, so nTime is used as-is (no Blackcoin zero fallback).
+    if (block.GetBlockTime() > 1433342883 && block.GetBlockTime() > FutureDrift(chainstate, block.vtx[0]->nTime))
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-time", "coinbase timestamp is too early");
 
     // Check coinstake timestamp
-    if (block.IsProofOfStake() && !CheckCoinStakeTimestamp(block.GetBlockTime(), block.vtx[1]->nTime ? (int64_t)block.vtx[1]->nTime : block.GetBlockTime()))
+    if (block.IsProofOfStake() && !CheckCoinStakeTimestamp(block.GetBlockTime(), block.vtx[1]->nTime))
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cs-time", "coinstake timestamp violation");
 
     if (block.IsProofOfStake()) {
         // Coinbase output must be empty if proof-of-stake block
-        int commitpos = GetWitnessCommitmentIndex(block);
-        if (commitpos == NO_WITNESS_COMMITMENT) {
-            if (block.vtx[0]->vout.size() != 1 || !block.vtx[0]->vout[0].IsEmpty())
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-not-empty", "coinbase output not empty for proof-of-stake block");
-        } else {
-            if (block.vtx[0]->vout.size() != 2 || !block.vtx[0]->vout[0].IsEmpty() || block.vtx[0]->vout[1].nValue)
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-not-empty", "coinbase output not empty for proof-of-stake block");
-        }
+        // VALIDITY-PORT: Validity has no segwit, so a PoS coinbase must have exactly one
+        // empty output (no witness commitment), matching the 0.13 client.
+        if (block.vtx[0]->vout.size() != 1 || !block.vtx[0]->vout[0].IsEmpty())
+            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-not-empty", "coinbase output not empty for proof-of-stake block");
 
         // Second transaction must be coinstake, the rest must not be
         if (block.vtx.size() < 2 || !block.vtx[1]->IsCoinStake())
@@ -4206,6 +4201,11 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
     const Consensus::Params& consensusParams = chainman.GetConsensus();
+
+    // VALIDITY-PORT: reject a proof-of-work block body after nLastPOWBlock, as the
+    // 0.13 client's AcceptBlock does. The header check only sees the header's PoS flag.
+    if (block.IsProofOfWork() && nHeight > consensusParams.nLastPOWBlock)
+        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-pow-height", strprintf("reject proof-of-work at height %d", nHeight));
 
     // Enforce BIP113 (Median Time Past).
     bool enforce_locktime_median_time_past{false};

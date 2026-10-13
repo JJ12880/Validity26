@@ -12,9 +12,12 @@
 /** The maximum allowed size for a serialized block, in bytes (only for buffer size limits) */
 static const unsigned int MAX_BLOCK_SERIALIZED_SIZE = 4000000;
 /** The maximum allowed weight for a block, see BIP 141 (network rule) */
-static const unsigned int MAX_BLOCK_WEIGHT = 4000000;
+// VALIDITY-PORT: the 0.13 client allows 2,000,000-byte blocks and has no segwit, so
+// weight == 4 * size and the limit is 8,000,000 to match its MAX_BLOCK_SIZE.
+static const unsigned int MAX_BLOCK_WEIGHT = 8000000;
 /** The maximum allowed number of signature check operations in a block (network rule) */
-static const int64_t MAX_BLOCK_SIGOPS_COST = 80000;
+// VALIDITY-PORT: 0.13 MAX_BLOCK_SIGOPS = 40000 legacy+P2SH sigops (x4 cost scale)
+static const int64_t MAX_BLOCK_SIGOPS_COST = 160000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
