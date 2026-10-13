@@ -952,6 +952,9 @@ static RPCHelpMan getblockrange()
     UniValue result(UniValue::VARR);
 
     const CBlockIndex* tip;
+    // Collect the index entries under one lock: CBlockIndex pointers stay valid, but
+    // re-reading ActiveChain()[h] per block could return nullptr after a reorg.
+    std::vector<const CBlockIndex*> vIndex;
     {
         LOCK(cs_main);
         const CChain& active_chain = chainman.ActiveChain();
@@ -963,15 +966,12 @@ static RPCHelpMan getblockrange()
         // Clamp count to available blocks
         if (nStartHeight + nCount - 1 > active_chain.Height())
             nCount = active_chain.Height() - nStartHeight + 1;
+
+        for (int i = 0; i < nCount; i++)
+            vIndex.push_back(active_chain[nStartHeight + i]);
     }
 
-    for (int i = 0; i < nCount; i++) {
-        const CBlockIndex* pblockindex;
-        {
-            LOCK(cs_main);
-            pblockindex = chainman.ActiveChain()[nStartHeight + i];
-        }
-
+    for (const CBlockIndex* pblockindex : vIndex) {
         const CBlock block{GetBlockChecked(chainman.m_blockman, pblockindex)};
 
         if (verbosity <= 0) {

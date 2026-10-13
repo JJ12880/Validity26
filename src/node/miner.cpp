@@ -182,11 +182,19 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = DeploymentActiveAfter(pindexPrev, m_chainstate.m_chainman, Consensus::DEPLOYMENT_SEGWIT);
 
+    // VALIDITY-PORT: a PoS block's time equals the coinstake time, which is the current
+    // time rounded down to nStakeTimestampMask. Select only transactions no newer than
+    // that, otherwise GetMaxTransactionTime() below pushes the block time past the
+    // coinstake time and the block fails CheckCoinStakeTimestamp ("bad-cs-time").
+    uint32_t nTxTimeLimit = pblock->nTime;
+    if (pwallet)
+        nTxTimeLimit &= ~chainparams.GetConsensus().nStakeTimestampMask;
+
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     if (m_mempool) {
         LOCK(m_mempool->cs);
-        addPackageTxs(*m_mempool, nPackagesSelected, nDescendantsUpdated, pblock->nTime);
+        addPackageTxs(*m_mempool, nPackagesSelected, nDescendantsUpdated, nTxTimeLimit);
     }
 
     const auto time_1{SteadyClock::now()};

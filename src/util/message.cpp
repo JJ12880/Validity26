@@ -21,7 +21,8 @@
  * Text used to signify that a signed message follows and to prevent
  * inadvertently signing a transaction.
  */
-const std::string MESSAGE_MAGIC = "BlackCoin Signed Message:\n";
+// VALIDITY-PORT: must match the 0.13 client (strMessageMagic) so old signatures verify
+const std::string MESSAGE_MAGIC = "radium Signed Message:\n";
 
 MessageVerificationResult MessageVerify(
     const std::string& address,

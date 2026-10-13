@@ -79,7 +79,8 @@ uint64_t GetStakeWeight(const CWallet& wallet)
 
     for (std::pair<const CWalletTx*,unsigned int> pcoin : setCoins)
     {
-        if (wallet.GetTxDepthInMainChain(*pcoin.first) >= Params().GetConsensus().nCoinbaseMaturity)
+        // VALIDITY-PORT: use the consensus stake maturity (60, or 120 from V4), not coinbase maturity
+        if (wallet.GetTxDepthInMainChain(*pcoin.first) >= Params().GetConsensus().nStakeMaturity(wallet.GetLastBlockHeight() + 1))
         {
             nWeight += pcoin.first->tx->vout[pcoin.second].nValue;
         }
@@ -100,7 +101,8 @@ void AvailableCoinsForStaking(const CWallet& wallet,
     // Either the WALLET_FLAG_AVOID_REUSE flag is not set (in which case we always allow), or we default to avoiding, and only in the case where
     // a coin control object is provided, and has the avoid address reuse flag set to false, do we allow already used addresses
     bool allow_used_addresses = !wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
-    const int min_depth = std::max(DEFAULT_MIN_DEPTH, Params().GetConsensus().nCoinbaseMaturity);
+    // VALIDITY-PORT: kernel inputs need nStakeMaturity confirmations (pos.cpp), not coinbase maturity
+    const int min_depth = std::max(DEFAULT_MIN_DEPTH, Params().GetConsensus().nStakeMaturity(wallet.GetLastBlockHeight() + 1));
     const int max_depth = DEFAULT_MAX_DEPTH;
     const bool only_safe = true;
 
@@ -326,10 +328,12 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
                 scriptPubKeyKernel = pcoin.first->tx->vout[pcoin.second].scriptPubKey;
                 TxoutType whichType = Solver(scriptPubKeyKernel, vSolutions);
 
-                if (whichType != TxoutType::PUBKEY && whichType != TxoutType::PUBKEYHASH && whichType != TxoutType::WITNESS_V0_KEYHASH && whichType != TxoutType::WITNESS_V1_TAPROOT)
+                // VALIDITY-PORT: Validity has no segwit, so like the 0.13 client only P2PK and
+                // P2PKH kernels are supported (witness kernels would produce invalid blocks).
+                if (whichType != TxoutType::PUBKEY && whichType != TxoutType::PUBKEYHASH)
                 {
                     LogPrint(BCLog::COINSTAKE, "CreateCoinStake : no support for kernel type=%s\n", GetTxnOutputType(whichType));
-                    break;  // only support pay to public key and pay to address and pay to witness keyhash
+                    break;  // only support pay to public key and pay to address
                 }
                 if (whichType == TxoutType::PUBKEYHASH) // pay to address
                 {

@@ -73,9 +73,42 @@ UniValue RunCommandParseJSON(const std::string& exe,
 
     if (exe.empty()) return UniValue::VNULL;
 
+    // `exe` is the user-configured -signer value (e.g. "hwi" or "py -3 hwi.py"), not
+    // untrusted data. Split it on whitespace (honouring double quotes) like the string
+    // overload's tokenizer did, and resolve a bare program name through PATH, since
+    // the argv form of bp::child does neither. Untrusted values stay in `args`.
+    std::vector<std::string> cmd_parts;
+    {
+        std::string cur;
+        bool in_quotes{false}, have_token{false};
+        for (const char ch : exe) {
+            if (ch == '"') {
+                in_quotes = !in_quotes;
+                have_token = true;
+            } else if (!in_quotes && (ch == ' ' || ch == '\t')) {
+                if (have_token) cmd_parts.push_back(cur);
+                cur.clear();
+                have_token = false;
+            } else {
+                cur += ch;
+                have_token = true;
+            }
+        }
+        if (have_token) cmd_parts.push_back(cur);
+    }
+    if (cmd_parts.empty()) return UniValue::VNULL;
+
+    bp::filesystem::path program{cmd_parts[0]};
+    if (!program.has_parent_path()) {
+        const bp::filesystem::path found{bp::search_path(cmd_parts[0])};
+        if (!found.empty()) program = found;
+    }
+    std::vector<std::string> full_args(cmd_parts.begin() + 1, cmd_parts.end());
+    full_args.insert(full_args.end(), args.begin(), args.end());
+
     bp::child c(
-        exe,
-        bp::args = args,
+        program,
+        bp::args = full_args,
         bp::std_out > stdout_stream,
         bp::std_err > stderr_stream,
         bp::std_in < stdin_stream

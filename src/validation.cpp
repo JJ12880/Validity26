@@ -1760,9 +1760,9 @@ CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmou
             nRFee = 70;
         }
         CAmount nRunningFee = GetRunningFee(pindexPrev, nFees);
-        // VALIDITY-PORT: If running fee is 0 but nFees data may be missing (restart
-        // without persisted nFees), skip the fee check to avoid false rejections.
-        // Once nFees is rebuilt during sync, the correct check applies going forward.
+        // VALIDITY-PORT: this relies on CBlockIndex::nFees for the previous 1439 blocks,
+        // which is persisted in the block index. A datadir whose index lacks nFees must
+        // be rebuilt (-reindex); there is intentionally no fallback that skips the check.
         nRFee += nRunningFee;
         return nSubsidy + nRFee;
     } else if (nHeight >= AVG_FEE_START_BLOCK_REVERT) {
@@ -2545,9 +2545,9 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
 
         nInputs += tx.vin.size();
 
+        CAmount txfee = 0; // set by CheckTxInputs for non-coinstake txs (value in - value out)
         if (!tx.IsCoinBase())
         {
-            CAmount txfee = 0;
             TxValidationState tx_state;
             if (!Consensus::CheckTxInputs(tx, tx_state, view, pindex->nHeight, txfee)) {
                 // Any transaction validation failure in ConnectBlock is a block consensus failure
@@ -2555,12 +2555,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
                             tx_state.GetRejectReason(), tx_state.GetDebugMessage());
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), state.ToString());
             }
-            // VALIDITY-PORT: Don't add txfee here — fees are accumulated below
-            // in the view.GetValueIn path to avoid double-counting
-            if (!MoneyRange(nFees)) {
-                LogPrintf("ERROR: %s: accumulated fee in the block out of range.\n", __func__);
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-accumulated-fee-outofrange");
-            }
+            // VALIDITY-PORT: fees are accumulated below, before the inputs are spent
 
             // Check that transaction is BIP68 final
             // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -2588,10 +2583,16 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
 
         if (!tx.IsCoinBase())
         {
-            if (tx.IsCoinStake())
+            if (tx.IsCoinStake()) {
                 nActualStakeReward = tx.GetValueOut()-view.GetValueIn(tx);
-            else
-                nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            } else {
+                // txfee == GetValueIn(tx) - GetValueOut(), already computed by CheckTxInputs
+                nFees += txfee;
+                if (!MoneyRange(nFees)) {
+                    LogPrintf("ERROR: %s: accumulated fee in the block out of range.\n", __func__);
+                    return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-accumulated-fee-outofrange");
+                }
+            }
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -3837,7 +3838,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& st
 
     // Check proof of work hash
     if (fCheckPOW && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams)) {
-        LogPrintf("DEBUG CheckBlockHeader: PoW failed hash=%s version=%d time=%u bits=0x%08x nonce=%u fOldClient=%d\n",
+        LogPrint(BCLog::VALIDATION, "CheckBlockHeader: PoW failed hash=%s version=%d time=%u bits=0x%08x nonce=%u fOldClient=%d\n",
             block.GetHash().ToString(), block.nVersion, block.nTime, block.nBits, block.nNonce, fOldClient);
         if (fOldClient)
             return false;
@@ -4307,9 +4308,10 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
         }
         if (!CheckBlockHeader(block, state, GetConsensus(), chainstate, !fProofOfStake, fOldClient))
         {
-            if (fOldClient) {
+            // VALIDITY-PORT: only a failed PoW-hash check (which leaves state valid for old
+            // clients) means our PoW/PoS guess was wrong; version/time failures are real errors.
+            if (fOldClient && state.IsValid()) {
                 fSetAsProofOfStake = !fProofOfStake; // our guess was wrong - correct it
-                state = BlockValidationState(); // clear the error state for retry
             } else {
                 LogPrint(BCLog::VALIDATION, "%s: Consensus::CheckBlockHeader: %s, %s\n", __func__, hash.ToString(), state.ToString());
                 return false;
@@ -4329,7 +4331,7 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
             return state.Invalid(BlockValidationResult::BLOCK_INVALID_PREV, "bad-prevblk");
         }
         if (!ContextualCheckBlockHeader(block, state, m_blockman, *this, pindexPrev, m_options.adjusted_time_callback(), chainstate.m_chain, fSetAsProofOfStake)) {
-            LogPrintf("DEBUG AcceptBlockHeader FAILED: hash=%s reason=%s fSetAsProofOfStake=%d nVersion=%d nBits=0x%08x nTime=%u prevHash=%s\n",
+            LogPrint(BCLog::VALIDATION, "AcceptBlockHeader failed: hash=%s reason=%s fSetAsProofOfStake=%d nVersion=%d nBits=0x%08x nTime=%u prevHash=%s\n",
                 hash.ToString(), state.ToString(), fSetAsProofOfStake, block.nVersion, block.nBits, block.nTime, block.hashPrevBlock.ToString());
             return false;
         }
