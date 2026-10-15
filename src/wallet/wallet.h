@@ -140,10 +140,14 @@ static constexpr size_t DUMMY_NESTED_P2WPKH_INPUT_SIZE = 91;
 static const CAmount DEFAULT_MIN_STAKING_AMOUNT = 0.1 * COIN;
 //! -reservebalance default
 static const CAmount DEFAULT_RESERVE_BALANCE = 0;
-//! -donatetodevfund default
-static const unsigned int DEFAULT_DONATION_PERCENTAGE = 0; // VALIDITY-PORT: No voluntary donation (Validity uses mandatory protocol-level dev fund)
+//! -stakedonationpercent default. VALIDITY-PORT: the donation goes to -stakedonationaddress
+//! (any address, not just the dev fund) and is a share of the stake reward, never the principal.
+static const unsigned int DEFAULT_DONATION_PERCENTAGE = 0;
 static const unsigned int MIN_DONATION_PERCENTAGE = 0;
-static const unsigned int MAX_DONATION_PERCENTAGE = 95;
+static const unsigned int MAX_DONATION_PERCENTAGE = 100;
+//! Largest -staketag: the bytes after the block-signing pubkey in the coinstake's OP_RETURN
+//! output. Kept small so a tag adds at most ~75 bytes to a block; coinstakes never enter the mempool.
+static const size_t MAX_STAKE_TAG_BYTES = 40;
 
 class CCoinControl;
 
@@ -721,7 +725,18 @@ public:
     int64_t m_last_coin_stake_search_interval{0};
     CAmount m_min_staking_amount{DEFAULT_MIN_STAKING_AMOUNT};
     CAmount m_reserve_balance{DEFAULT_RESERVE_BALANCE};
-    unsigned int m_donation_percentage{DEFAULT_DONATION_PERCENTAGE};
+    //! Share of each stake reward paid to m_donation_destination; 0 unless both are set and valid.
+    //! Read and written under cs_wallet (the staker holds it while building the coinstake).
+    unsigned int m_donation_percentage GUARDED_BY(cs_wallet){DEFAULT_DONATION_PERCENTAGE};
+    CTxDestination m_donation_destination GUARDED_BY(cs_wallet){CNoDestination()};
+    //! Set (percent > 0) or clear (percent == 0) the stake donation. Only P2PKH/P2SH
+    //! addresses are accepted. Returns false with an error message if rejected.
+    bool SetStakeDonation(unsigned int percent, const std::string& address, bilingual_str& error);
+    //! Data published with each stake: vout[1] becomes OP_RETURN <signing pubkey> <tag> (the 0.13
+    //! multisig-staking layout, accepted by CheckBlockSignature). Empty means untagged.
+    std::vector<unsigned char> m_stake_tag GUARDED_BY(cs_wallet);
+    //! Set the stake tag from hex (empty clears it). At most MAX_STAKE_TAG_BYTES bytes.
+    bool SetStakeTag(const std::string& hex, bilingual_str& error);
     std::atomic<bool> m_enabled_staking{false};
     std::atomic<bool> m_stop_staking_thread{false};
     uint64_t GetStakeWeight() const;

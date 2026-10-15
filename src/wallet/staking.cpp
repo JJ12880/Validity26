@@ -389,6 +389,19 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
                     bMinterKey = true;
                 }
 
+                // VALIDITY-PORT: stake tag. vout[1] becomes OP_RETURN <signing pubkey> <tag>, the
+                // layout CheckBlockSignature accepts for multisig staking, and the stake goes back to
+                // the kernel script. Not on dev fund blocks, which must be exactly [empty, stake, devfund].
+                // The size cap is rechecked here so nothing but SetStakeTag's limit can reach a block.
+                if (!bMinterKey && !wallet.m_stake_tag.empty() && wallet.m_stake_tag.size() <= MAX_STAKE_TAG_BYTES &&
+                    !Params().GetConsensus().IsBlockDevFund(pindexPrev->nHeight + 1)) {
+                    std::vector<valtype> vSolutionsOut;
+                    if (Solver(scriptPubKeyOut, vSolutionsOut) == TxoutType::PUBKEY) {
+                        scriptPubKeyOut = CScript() << OP_RETURN << vSolutionsOut[0] << wallet.m_stake_tag;
+                        bMinterKey = true;
+                    }
+                }
+
                 txNew.nTime -= n;
                 txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
                 nCredit += pcoin.first->tx->vout[pcoin.second].nValue;
@@ -426,7 +439,7 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
 
         // Attempt to add more inputs
         // Only add coins of the same key/address as kernel
-        if (txNew.vout.size() == 2 && ((pcoin.first->tx->vout[pcoin.second].scriptPubKey == scriptPubKeyKernel || pcoin.first->tx->vout[pcoin.second].scriptPubKey == txNew.vout[1].scriptPubKey))
+        if (txNew.vout.size() == 2u + bMinterKey && ((pcoin.first->tx->vout[pcoin.second].scriptPubKey == scriptPubKeyKernel || pcoin.first->tx->vout[pcoin.second].scriptPubKey == txNew.vout[1 + bMinterKey].scriptPubKey))
             && pcoin.first->GetHash() != txNew.vin[0].prevout.hash)
         {
             // Stop adding more inputs if already too many inputs
@@ -470,6 +483,26 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
     const Consensus::Params& vConsensus = Params().GetConsensus();
     const bool fIsDevFundBlock = vConsensus.IsBlockDevFund(nStakeHeight);
 
+    // VALIDITY-PORT: optional stake donation, a share of the reward (never the principal)
+    // paid as an extra output after the stake outputs. vout[1] must stay the staker's key
+    // (it verifies the block signature), and dev fund blocks must have exactly 3 outputs,
+    // so the donation is skipped on those. Consensus only limits the total paid.
+    // Copied under cs_wallet (the staker already holds it; it is recursive) as the GUI can change it.
+    unsigned int nDonationPercent;
+    CTxDestination donationDest;
+    {
+        LOCK(wallet.cs_wallet);
+        nDonationPercent = wallet.m_donation_percentage;
+        donationDest = wallet.m_donation_destination;
+    }
+    CAmount nDonation = 0;
+    if (!fIsDevFundBlock && nDonationPercent > 0 && IsValidDestination(donationDest)) {
+        nDonation = nReward * nDonationPercent / 100;
+        if (nDonation < CENT)
+            nDonation = 0; // not worth an output
+        nCredit -= nDonation;
+    }
+
     // Split stake — but not on dev fund blocks, where the validator requires exactly
     // 3 outputs. A split dev fund block would be consensus-invalid.
     if (!fIsDevFundBlock && nCredit >= GetStakeSplitThreshold())
@@ -486,6 +519,9 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
         // Non-split case: single stake output
         txNew.vout[1 + bMinterKey].nValue = nCredit;
     }
+
+    if (nDonation > 0)
+        txNew.vout.push_back(CTxOut(nDonation, GetScriptForDestination(donationDest)));
 
     // Add mandatory dev fund output last, using the raw hex-encoded script from
     // consensus params so the byte layout exactly matches the validator's HexStr
@@ -517,8 +553,10 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
         // Script verification errors
         std::map<int, bilingual_str> input_errors;
         int nTime = txNew.nTime;
-        wallet.SignTransaction(txNew, coins, SIGHASH_ALL, input_errors);
+        const bool fSigned = wallet.SignTransaction(txNew, coins, SIGHASH_ALL, input_errors);
         txNew.nTime = nTime;
+        if (!fSigned)
+            return error("CreateCoinStake : failed to sign coinstake");
     }
 
     // Limit size

@@ -621,8 +621,20 @@ bool SignBlock(CBlock& block, const CWallet& keystore)
     std::vector<valtype> vSolutions;
     const CTxOut& txout = block.IsProofOfStake() ? block.vtx[1]->vout[1] : block.vtx[0]->vout[0];
 
-    if (Solver(txout.scriptPubKey, vSolutions) != TxoutType::PUBKEY)
-        return false;
+    if (Solver(txout.scriptPubKey, vSolutions) != TxoutType::PUBKEY) {
+        // VALIDITY-PORT: tagged coinstake, vout[1] = OP_RETURN <signing pubkey> <tag>.
+        // Same parse as CheckBlockSignature.
+        if (!block.IsProofOfStake())
+            return false;
+        CScript::const_iterator pc = txout.scriptPubKey.begin();
+        opcodetype opcode;
+        valtype vchPubKey;
+        if (!txout.scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN)
+            return false;
+        if (!txout.scriptPubKey.GetOp(pc, opcode, vchPubKey) || !CPubKey::ValidSize(vchPubKey))
+            return false;
+        vSolutions.assign(1, vchPubKey);
+    }
 
     // Sign
     if (keystore.IsLegacy())

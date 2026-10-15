@@ -257,6 +257,18 @@ public:
     //! Get donation percentage
     virtual unsigned int getDonationPercentage() = 0;
 
+    //! Get stake donation address (empty when the donation is disabled)
+    virtual std::string getDonationAddress() = 0;
+
+    //! Set (percent > 0) or clear (percent == 0) the stake donation; takes effect for the next stake
+    virtual bool setStakeDonation(unsigned int percent, const std::string& address, bilingual_str& error) = 0;
+
+    //! Get the stake tag as hex (empty when disabled)
+    virtual std::string getStakeTag() = 0;
+
+    //! Set the stake tag from hex (empty clears it); takes effect for the next stake
+    virtual bool setStakeTag(const std::string& hex, bilingual_str& error) = 0;
+
     //! Try get the stake weight
     virtual bool tryGetStakeWeight(uint64_t& nWeight) = 0;
 

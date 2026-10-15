@@ -8,13 +8,17 @@
 #include <consensus/amount.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
+#include <key_io.h>
 #include <policy/fees.h>
 #include <primitives/transaction.h>
 #include <rpc/server.h>
+#include <script/solver.h>
 #include <support/allocators/secure.h>
 #include <sync.h>
 #include <uint256.h>
 #include <util/check.h>
+#include <util/strencodings.h>
+#include <util/time.h>
 #include <util/translation.h>
 #include <util/ui_change_type.h>
 #include <wallet/coincontrol.h>
@@ -501,7 +505,21 @@ public:
     {
         RemoveWallet(m_context, m_wallet, /*load_on_start=*/false);
     }
-    unsigned int getDonationPercentage() override { return m_wallet->m_donation_percentage; }
+    unsigned int getDonationPercentage() override { LOCK(m_wallet->cs_wallet); return m_wallet->m_donation_percentage; }
+    std::string getDonationAddress() override
+    {
+        LOCK(m_wallet->cs_wallet);
+        return m_wallet->m_donation_percentage > 0 ? EncodeDestination(m_wallet->m_donation_destination) : std::string();
+    }
+    bool setStakeDonation(unsigned int percent, const std::string& address, bilingual_str& error) override
+    {
+        return m_wallet->SetStakeDonation(percent, address, error);
+    }
+    std::string getStakeTag() override { LOCK(m_wallet->cs_wallet); return HexStr(m_wallet->m_stake_tag); }
+    bool setStakeTag(const std::string& hex, bilingual_str& error) override
+    {
+        return m_wallet->SetStakeTag(hex, error);
+    }
     bool tryGetStakeWeight(uint64_t& nWeight) override
     {
         TRY_LOCK(m_wallet->cs_wallet, locked_wallet);
@@ -555,7 +573,9 @@ public:
 
             CAmount reward = 0;
             if (wtx.IsCoinStake()) {
-                reward = CachedTxGetCredit(*m_wallet, wtx, ISMINE_ALL) - CachedTxGetDebit(*m_wallet, wtx, ISMINE_ALL);
+                const CAmount debit = CachedTxGetDebit(*m_wallet, wtx, ISMINE_ALL);
+                if (debit == 0) continue; // someone else staked it: a stake donation to us, not our reward
+                reward = CachedTxGetCredit(*m_wallet, wtx, ISMINE_ALL) - debit;
             } else {
                 for (const CTxOut& txout : wtx.tx->vout) {
                     if (m_wallet->IsMine(txout) != ISMINE_NO) reward += txout.nValue;
