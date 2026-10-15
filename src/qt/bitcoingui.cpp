@@ -129,10 +129,11 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
         Q_EMIT consoleShown(rpcConsole);
     }
 
-    // VALIDITY-PORT: Create overlay but keep it hidden — sync progress shown in status bar
+    // VALIDITY-PORT: Create overlay but keep it hidden — sync progress shown in status bar.
+    // It opens only when the user clicks the progress bar (it was also disabled, which greyed
+    // out its Hide button).
     modalOverlay = new ModalOverlay(enableWallet, this->centralWidget());
     modalOverlay->hide();
-    modalOverlay->setEnabled(false);
 
     // Accept D&D of URIs
     setAcceptDrops(true);
