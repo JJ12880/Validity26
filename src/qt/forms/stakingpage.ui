@@ -65,6 +65,32 @@
         <item>
          <layout class="QHBoxLayout">
           <item>
+           <widget class="QLabel"><property name="text"><string>Stake Donation:</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelStakeDonation">
+            <property name="text"><string>None</string></property>
+            <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QLabel"><property name="text"><string>Stake Tag:</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelStakeTag">
+            <property name="text"><string>None</string></property>
+            <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
            <widget class="QPushButton" name="btnUnlockStaking">
             <property name="text"><string>Unlock Wallet for Staking</string></property>
             <property name="visible"><bool>false</bool></property>
@@ -79,6 +105,11 @@
           <item>
            <widget class="QPushButton" name="btnSetReserve">
             <property name="text"><string>Set Reserve</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnSetDonation">
+            <property name="text"><string>Set Donation &amp;&amp; Tag</string></property>
            </widget>
           </item>
          </layout>

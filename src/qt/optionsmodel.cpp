@@ -44,7 +44,9 @@ static const char* SettingName(OptionsModel::OptionID option)
     case OptionsModel::ThreadsScriptVerif: return "par";
     case OptionsModel::SpendZeroConfChange: return "spendzeroconfchange";
     case OptionsModel::ReserveBalance: return "reservebalance";
-    case OptionsModel::DonationPercentage: return "donatetodevfund";
+    case OptionsModel::DonationPercentage: return "stakedonationpercent";
+    case OptionsModel::DonationAddress: return "stakedonationaddress";
+    case OptionsModel::StakeTag: return "staketag";
     case OptionsModel::ExternalSignerPath: return "signer";
     case OptionsModel::MapPortUPnP: return "upnp";
     case OptionsModel::MapPortNatpmp: return "natpmp";
@@ -155,7 +157,7 @@ bool OptionsModel::Init(bilingual_str& error)
 
     // These are shared with the core or have a command-line parameter
     // and we want command-line parameters to overwrite the GUI settings.
-    for (OptionID option : {DatabaseCache, ThreadsScriptVerif, ReserveBalance, DonationPercentage,
+    for (OptionID option : {DatabaseCache, ThreadsScriptVerif, ReserveBalance, DonationPercentage, DonationAddress, StakeTag,
                             SpendZeroConfChange, ExternalSignerPath, MapPortUPnP,
                             MapPortNatpmp, Listen, Server, ProxyUse, ProxyUseTor, Language}) {
         std::string setting = SettingName(option);
@@ -363,6 +365,9 @@ QVariant OptionsModel::getOption(OptionID option, const std::string& suffix) con
         return QString::fromStdString(SettingToString(setting(), FormatMoney(wallet::DEFAULT_RESERVE_BALANCE)));
     case DonationPercentage:
         return qlonglong(SettingToInt(setting(), wallet::DEFAULT_DONATION_PERCENTAGE));
+    case DonationAddress:
+    case StakeTag:
+        return QString::fromStdString(SettingToString(setting(), ""));
     case SpendZeroConfChange:
         return SettingToBool(setting(), wallet::DEFAULT_SPEND_ZEROCONF_CHANGE);
     case ExternalSignerPath:
@@ -502,10 +507,17 @@ bool OptionsModel::setOption(OptionID option, const QVariant& value, const std::
             setRestartRequired(true);
         }
         break;
+    // VALIDITY-PORT: saved for the next start; the Staking page applies them to the
+    // running wallet itself (interfaces::Wallet::setStakeDonation), so no restart.
     case DonationPercentage:
         if (changed()) {
             update(static_cast<int64_t>(value.toLongLong()));
-            setRestartRequired(true);
+        }
+        break;
+    case DonationAddress:
+    case StakeTag:
+        if (changed()) {
+            update(value.toString().trimmed().toStdString());
         }
         break;
     case SpendZeroConfChange:

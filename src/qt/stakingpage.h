@@ -101,6 +101,7 @@ private:
     void startGaugeSweepAnimation();
     void exitSpinnerMode();
     void setStakingStatusLabel(const QString& text, const QString& style);
+    void updateDonationLabel();
 
 private Q_SLOTS:
     void onBalanceChanged();
@@ -112,6 +113,7 @@ private Q_SLOTS:
     void onUnlockForStakingClicked();
     void onStopStakingClicked();
     void onSetReserveClicked();
+    void onSetDonationClicked();
 };
 
 #endif // BITCOIN_QT_STAKINGPAGE_H

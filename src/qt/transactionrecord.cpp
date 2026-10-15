@@ -142,8 +142,15 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 }
                 else if (wtx.is_coinstake)
                 {
-                    // Staked
-                    sub.type = TransactionRecord::Staked;
+                    // VALIDITY-PORT: a coinstake whose inputs are not ours was staked by
+                    // someone else, so our output in it is a stake donation to us.
+                    if (nDebit == 0) {
+                        sub.type = TransactionRecord::StakeDonation;
+                        sub.idx = i;
+                    } else {
+                        // Staked
+                        sub.type = TransactionRecord::Staked;
+                    }
                 }
 
                 parts.append(sub);
@@ -188,7 +195,7 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, cons
     status.m_cur_block_hash = block_hash;
 
     // For generated transactions, determine maturity
-    if (type == TransactionRecord::Generated || type == TransactionRecord::Staked) {
+    if (type == TransactionRecord::Generated || type == TransactionRecord::Staked || type == TransactionRecord::StakeDonation) {
         if (wtx.blocks_to_maturity > 0)
         {
             status.status = TransactionStatus::Immature;

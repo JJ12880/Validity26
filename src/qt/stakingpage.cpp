@@ -5,6 +5,7 @@
 #include <qt/stakingpage.h>
 #include <qt/forms/ui_stakingpage.h>
 
+#include <qt/addressbookpage.h>
 #include <qt/askpassphrasedialog.h>
 #include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
@@ -17,10 +18,30 @@
 #include <chainparams.h>
 #include <interfaces/node.h>
 #include <interfaces/wallet.h>
+#include <key_io.h>
 #include <util/moneystr.h>
+#include <util/strencodings.h>
+#include <util/translation.h>
 #include <validation.h>
+#include <wallet/types.h>
+#include <wallet/wallet.h>
 
 #include <QDateTime>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QGridLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
+#include <QSpinBox>
+#include <QToolButton>
+#include <QVBoxLayout>
 #include <QInputDialog>
 #include <QTimer>
 #include <QDebug>
@@ -46,6 +67,38 @@ static QString formatVal4(BitcoinUnit unit, CAmount amount)
         }
     }
     return s;
+}
+
+// VALIDITY: an L2 address stake tag is 'S' + the address's base58 version byte + its hash160
+// (22 bytes), the binary form the SmartChain L2 uses for an L1 address.
+static constexpr unsigned char STAKE_TAG_L2_MARKER = 0x53;
+
+static std::string L2AddressToTagHex(const std::string& address)
+{
+    const CTxDestination dest = DecodeDestination(address);
+    std::vector<unsigned char> tag{STAKE_TAG_L2_MARKER};
+    if (const auto* pkh = std::get_if<PKHash>(&dest)) {
+        tag.push_back(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS).at(0));
+        tag.insert(tag.end(), pkh->begin(), pkh->end());
+    } else if (const auto* sh = std::get_if<ScriptHash>(&dest)) {
+        tag.push_back(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS).at(0));
+        tag.insert(tag.end(), sh->begin(), sh->end());
+    } else {
+        return {};
+    }
+    return HexStr(tag);
+}
+
+//! The address an L2 address tag encodes, or empty if the tag is something else.
+static std::string TagHexToL2Address(const std::string& hex)
+{
+    const std::vector<unsigned char> tag = ParseHex(hex);
+    if (tag.size() != 2 + uint160::size() || tag[0] != STAKE_TAG_L2_MARKER) return {};
+    uint160 hash;
+    std::copy(tag.begin() + 2, tag.end(), hash.begin());
+    if (tag[1] == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS).at(0)) return EncodeDestination(PKHash(hash));
+    if (tag[1] == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS).at(0)) return EncodeDestination(ScriptHash(hash));
+    return {};
 }
 
 StakingPage::StakingPage(const PlatformStyle* platformStyle, QWidget* parent)
@@ -126,6 +179,7 @@ StakingPage::StakingPage(const PlatformStyle* platformStyle, QWidget* parent)
     connect(ui->btnUnlockStaking, &QPushButton::clicked, this, &StakingPage::onUnlockForStakingClicked);
     connect(ui->btnStopStaking, &QPushButton::clicked, this, &StakingPage::onStopStakingClicked);
     connect(ui->btnSetReserve, &QPushButton::clicked, this, &StakingPage::onSetReserveClicked);
+    connect(ui->btnSetDonation, &QPushButton::clicked, this, &StakingPage::onSetDonationClicked);
 }
 
 StakingPage::~StakingPage()
@@ -237,6 +291,7 @@ void StakingPage::onEncryptionStatusChanged()
         BitcoinUnit unit = walletModel->getOptionsModel()->getDisplayUnit();
         ui->labelReserveBalance->setText(formatVal4(unit, reserveAmount));
     }
+    updateDonationLabel();
 
     // VALIDITY: If the wallet was relocked while the gauges wait for staking to start,
     // leave spinner mode now so "Not staking, wallet locked" is shown.
@@ -645,6 +700,209 @@ void StakingPage::onSetReserveClicked()
             walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), newStr);
         onEncryptionStatusChanged(); // refresh display
     }
+}
+
+void StakingPage::updateDonationLabel()
+{
+    if (!walletModel) return;
+    const unsigned int percent = walletModel->wallet().getDonationPercentage();
+    const QString address = QString::fromStdString(walletModel->wallet().getDonationAddress());
+    auto shorten = [](const QString& s) { return s.length() > 20 ? s.left(10) + QStringLiteral("…") + s.right(6) : s; };
+    auto yours = [&](const QString& addr) {
+        wallet::isminetype is_mine = wallet::ISMINE_NO;
+        walletModel->wallet().getAddress(DecodeDestination(addr.toStdString()), /*name=*/nullptr, &is_mine, /*purpose=*/nullptr);
+        return is_mine != wallet::ISMINE_NO ? QStringLiteral(" ") + tr("(yours)") : QString();
+    };
+
+    if (percent == 0 || address.isEmpty()) {
+        ui->labelStakeDonation->setText(tr("None"));
+        ui->labelStakeDonation->setToolTip(QString());
+    } else {
+        ui->labelStakeDonation->setText(tr("%1% of rewards → %2").arg(percent).arg(shorten(address)) + yours(address));
+        ui->labelStakeDonation->setToolTip(address);
+    }
+
+    const std::string tagHex = walletModel->wallet().getStakeTag();
+    const QString tagAddress = QString::fromStdString(TagHexToL2Address(tagHex));
+    if (tagHex.empty()) {
+        ui->labelStakeTag->setText(tr("None"));
+        ui->labelStakeTag->setToolTip(QString());
+    } else if (!tagAddress.isEmpty()) {
+        ui->labelStakeTag->setText(tr("L2 address %1").arg(shorten(tagAddress)) + yours(tagAddress));
+        ui->labelStakeTag->setToolTip(tagAddress);
+    } else {
+        const QString hex = QString::fromStdString(tagHex);
+        ui->labelStakeTag->setText(tr("%1 (%n byte(s))", "", hex.length() / 2).arg(shorten(hex)));
+        ui->labelStakeTag->setToolTip(hex);
+    }
+}
+
+void StakingPage::onSetDonationClicked()
+{
+    if (!walletModel || !walletModel->getOptionsModel()) return;
+
+    // VALIDITY-PORT: the donation and stake tag are applied to the running wallet at once (the
+    // staker picks them up for its next coinstake) and saved to settings.json for the next start.
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Stake donation and tag"));
+
+    auto bookButtonFor = [&](QLineEdit* edit) {
+        auto* button = new QToolButton(&dlg);
+        button->setIcon(m_platform_style->SingleColorIcon(":/icons/address-book"));
+        button->setToolTip(tr("Choose from the address book"));
+        connect(button, &QToolButton::clicked, &dlg, [&, edit] {
+            AddressBookPage book(m_platform_style, AddressBookPage::ForSelection, AddressBookPage::SendingTab, &dlg);
+            book.setModel(walletModel->getAddressTableModel());
+            if (book.exec()) edit->setText(book.getReturnValue());
+        });
+        return button;
+    };
+
+    // Donation
+    auto* donationBox = new QGroupBox(tr("Donation"), &dlg);
+    auto* spin = new QSpinBox(donationBox);
+    spin->setRange(1, wallet::MAX_DONATION_PERCENTAGE);
+    spin->setSuffix(QStringLiteral("%"));
+    auto* addressEdit = new QLineEdit(donationBox);
+    addressEdit->setPlaceholderText(tr("X... or Q... address (empty for no donation)"));
+    addressEdit->setMinimumWidth(320);
+
+    const unsigned int currentPercent = walletModel->wallet().getDonationPercentage();
+    spin->setValue(currentPercent > 0 ? int(currentPercent) : 10);
+    addressEdit->setText(QString::fromStdString(walletModel->wallet().getDonationAddress()));
+
+    auto* donationRow1 = new QHBoxLayout;
+    donationRow1->addWidget(new QLabel(tr("Donate"), donationBox));
+    donationRow1->addWidget(spin);
+    donationRow1->addWidget(new QLabel(tr("of each stake reward"), donationBox));
+    donationRow1->addStretch();
+    auto* donationRow2 = new QHBoxLayout;
+    donationRow2->addWidget(new QLabel(tr("to"), donationBox));
+    donationRow2->addWidget(addressEdit, 1);
+    donationRow2->addWidget(bookButtonFor(addressEdit));
+    auto* donationNote = new QLabel(tr("Paid from the reward only, never your staked coins. "
+                                       "Skipped on dev fund blocks and when below 0.01 VAL."), donationBox);
+    donationNote->setWordWrap(true);
+    auto* donationLayout = new QVBoxLayout(donationBox);
+    donationLayout->addLayout(donationRow1);
+    donationLayout->addLayout(donationRow2);
+    donationLayout->addWidget(donationNote);
+
+    // Stake tag
+    auto* tagBox = new QGroupBox(tr("Stake tag"), &dlg);
+    auto* radioL2 = new QRadioButton(tr("L2 address"), tagBox);
+    auto* radioHex = new QRadioButton(tr("Raw hex"), tagBox);
+    auto* tagAddressEdit = new QLineEdit(tagBox);
+    tagAddressEdit->setPlaceholderText(tr("X... or Q... address"));
+    auto* tagHexEdit = new QLineEdit(tagBox);
+    tagHexEdit->setPlaceholderText(tr("up to %1 bytes").arg(wallet::MAX_STAKE_TAG_BYTES));
+    tagHexEdit->setMaxLength(int(wallet::MAX_STAKE_TAG_BYTES) * 2);
+    tagHexEdit->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[0-9a-fA-F]*")), tagHexEdit));
+    auto* tagBook = bookButtonFor(tagAddressEdit);
+
+    const std::string currentTag = walletModel->wallet().getStakeTag();
+    const std::string currentTagAddress = TagHexToL2Address(currentTag);
+    if (currentTag.empty() || !currentTagAddress.empty()) {
+        radioL2->setChecked(true);
+        tagAddressEdit->setText(QString::fromStdString(currentTagAddress));
+    } else {
+        radioHex->setChecked(true);
+        tagHexEdit->setText(QString::fromStdString(currentTag));
+    }
+    auto syncTagMode = [=] {
+        tagAddressEdit->setEnabled(radioL2->isChecked());
+        tagBook->setEnabled(radioL2->isChecked());
+        tagHexEdit->setEnabled(radioHex->isChecked());
+    };
+    syncTagMode();
+    connect(radioL2, &QRadioButton::toggled, &dlg, syncTagMode);
+
+    auto* tagGrid = new QGridLayout;
+    tagGrid->addWidget(radioL2, 0, 0);
+    tagGrid->addWidget(tagAddressEdit, 0, 1);
+    tagGrid->addWidget(tagBook, 0, 2);
+    tagGrid->addWidget(radioHex, 1, 0);
+    tagGrid->addWidget(tagHexEdit, 1, 1, 1, 2);
+    auto* tagNote = new QLabel(tr("Published with each block you stake, in the output that carries the "
+                                  "block-signing key. Public and permanent. Skipped on dev fund blocks."), tagBox);
+    tagNote->setWordWrap(true);
+    auto* tagLayout = new QVBoxLayout(tagBox);
+    tagLayout->addLayout(tagGrid);
+    tagLayout->addWidget(tagNote);
+
+    auto* buttons = new QDialogButtonBox(&dlg);
+    QPushButton* removeTagButton = buttons->addButton(tr("Remove tag"), QDialogButtonBox::DestructiveRole);
+    removeTagButton->setEnabled(!currentTag.empty());
+    QPushButton* removeDonationButton = buttons->addButton(tr("Remove donation"), QDialogButtonBox::DestructiveRole);
+    removeDonationButton->setEnabled(currentPercent > 0);
+    buttons->addButton(QDialogButtonBox::Cancel);
+    QPushButton* applyButton = buttons->addButton(tr("Apply"), QDialogButtonBox::AcceptRole);
+    applyButton->setDefault(true);
+
+    auto* layout = new QVBoxLayout(&dlg);
+    layout->addWidget(donationBox);
+    layout->addWidget(tagBox);
+    layout->addWidget(buttons);
+
+    OptionsModel* options = walletModel->getOptionsModel();
+    auto saveDonation = [&](unsigned int percent, const QString& address) {
+        options->setData(options->index(OptionsModel::DonationPercentage, 0), qlonglong(percent));
+        options->setData(options->index(OptionsModel::DonationAddress, 0), address);
+    };
+    auto saveTag = [&](const std::string& hex) {
+        options->setData(options->index(OptionsModel::StakeTag, 0), QString::fromStdString(hex));
+    };
+    connect(removeDonationButton, &QPushButton::clicked, &dlg, [&] {
+        bilingual_str error;
+        walletModel->wallet().setStakeDonation(0, "", error);
+        saveDonation(0, QString());
+        dlg.accept();
+    });
+    connect(removeTagButton, &QPushButton::clicked, &dlg, [&] {
+        bilingual_str error;
+        walletModel->wallet().setStakeTag("", error);
+        saveTag("");
+        dlg.accept();
+    });
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dlg, [&] {
+        // Work out the tag first so a bad tag changes nothing.
+        std::string tagHex;
+        if (radioL2->isChecked()) {
+            const QString tagAddress = tagAddressEdit->text().trimmed();
+            if (!tagAddress.isEmpty()) {
+                tagHex = L2AddressToTagHex(tagAddress.toStdString());
+                if (tagHex.empty()) {
+                    QMessageBox::warning(&dlg, tr("Stake tag"), tr("%1 is not a valid P2PKH or P2SH address.").arg(tagAddress));
+                    return;
+                }
+            }
+        } else {
+            tagHex = tagHexEdit->text().trimmed().toLower().toStdString();
+            if (tagHex.size() % 2 != 0) {
+                QMessageBox::warning(&dlg, tr("Stake tag"), tr("The stake tag must be an even number of hex digits."));
+                return;
+            }
+        }
+
+        const QString address = addressEdit->text().trimmed();
+        const unsigned int percent = address.isEmpty() ? 0 : spin->value();
+        bilingual_str error;
+        if (!walletModel->wallet().setStakeDonation(percent, address.toStdString(), error)) {
+            QMessageBox::warning(&dlg, tr("Stake donation"), QString::fromStdString(error.translated));
+            return; // keep the dialog open so the address can be corrected
+        }
+        saveDonation(percent, address);
+        if (!walletModel->wallet().setStakeTag(tagHex, error)) {
+            QMessageBox::warning(&dlg, tr("Stake tag"), QString::fromStdString(error.translated));
+            return;
+        }
+        saveTag(tagHex);
+        dlg.accept();
+    });
+
+    dlg.exec();
+    updateDonationLabel();
 }
 
 void StakingPage::onUnlockForStakingClicked()

@@ -56,6 +56,8 @@ public:
         ThreadsScriptVerif,     // int
         ReserveBalance,         // CAmount
         DonationPercentage,     // int
+        DonationAddress,        // QString
+        StakeTag,               // QString (hex)
         DatabaseCache,          // int
         ExternalSignerPath,     // QString
         SpendZeroConfChange,    // bool
