@@ -291,7 +291,7 @@
                <cursorShape>IBeamCursor</cursorShape>
               </property>
               <property name="toolTip">
-               <string>Total donations to the Validity dev fund</string>
+               <string>Share of each stake reward paid to the stake donation address (set on the Staking tab)</string>
               </property>
               <property name="text">
                <string>0</string>

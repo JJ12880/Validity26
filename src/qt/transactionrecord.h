@@ -69,7 +69,8 @@ public:
         SendToOther,
         RecvWithAddress,
         RecvFromOther,
-        Staked
+        Staked,
+        StakeDonation // VALIDITY-PORT: our output in a coinstake this wallet did not fund
     };
 
     /** Number of confirmation recommended for accepting a transaction */

@@ -14,6 +14,7 @@
 #include <qt/transactionrecord.h>
 
 #include <common/system.h>
+#include <chainparams.h>
 #include <consensus/consensus.h>
 #include <interfaces/node.h>
 #include <interfaces/wallet.h>
@@ -22,6 +23,8 @@
 #include <policy/policy.h>
 #include <validation.h>
 #include <wallet/types.h>
+
+#include <util/strencodings.h>
 
 #include <stdint.h>
 #include <string>
@@ -202,6 +205,25 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         else
             strHTML += "(" + tr("not accepted") + ")";
         strHTML += "<br>";
+    }
+    else if (wtx.is_coinstake)
+    {
+        // VALIDITY-PORT: a coinstake we funded shows our net reward plus any stake donation
+        // outputs paid to other addresses; one we did not fund is a stake donation to us.
+        if (nDebit == 0) {
+            strHTML += "<b>" + tr("Stake donation received") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nCredit) + "<br>";
+        } else {
+            strHTML += "<b>" + tr("Stake reward") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
+            auto mine = wtx.txout_is_mine.begin();
+            for (const CTxOut& txout : wtx.tx->vout) {
+                const isminetype toMe = *(mine++);
+                if (toMe || txout.nValue <= 0) continue;
+                CTxDestination address;
+                const std::string strTo = ExtractDestination(txout.scriptPubKey, address) ? EncodeDestination(address) : tr("unknown script").toStdString();
+                const bool fDevFund = HexStr(txout.scriptPubKey) == Params().GetConsensus().sDevFundScript;
+                strHTML += "<b>" + (fDevFund ? tr("Dev fund payment to") : tr("Stake donation to")) + ":</b> " + GUIUtil::HtmlEscape(strTo) + " " + BitcoinUnits::formatHtmlWithUnit(unit, fDevFund ? txout.nValue : -txout.nValue) + "<br>"; // dev fund is new issuance, not taken from our reward
+            }
+        }
     }
     else if (nNet > 0)
     {
