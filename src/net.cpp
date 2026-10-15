@@ -2454,7 +2454,9 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
     auto next_feeler = GetExponentialRand(start, FEELER_INTERVAL);
     auto next_extra_block_relay = GetExponentialRand(start, EXTRA_BLOCK_RELAY_ONLY_PEER_INTERVAL);
     auto next_extra_network_peer{GetExponentialRand(start, EXTRA_NETWORK_PEER_INTERVAL)};
-    const bool dnsseed = gArgs.GetBoolArg("-dnsseed", DEFAULT_DNSSEED);
+    // VALIDITY: no DNS seeds are compiled in, so don't wait 60 seconds for DNS results that
+    // can never arrive. With an empty peers.dat the fixed seeds are then used right away.
+    const bool dnsseed = gArgs.GetBoolArg("-dnsseed", DEFAULT_DNSSEED) && !m_params.DNSSeeds().empty();
     bool add_fixed_seeds = gArgs.GetBoolArg("-fixedseeds", DEFAULT_FIXEDSEEDS);
     const bool use_seednodes{gArgs.IsArgSet("-seednode")};
 
@@ -2493,7 +2495,7 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
                 LOCK(m_added_nodes_mutex);
                 if (m_added_node_params.empty()) {
                     add_fixed_seeds_now = true;
-                    LogPrintf("Adding fixed seeds as -dnsseed=0 (or IPv4/IPv6 connections are disabled via -onlynet) and neither -addnode nor -seednode are provided\n");
+                    LogPrintf("Adding fixed seeds as there are no DNS seeds (none configured, -dnsseed=0, or IPv4/IPv6 connections are disabled via -onlynet) and neither -addnode nor -seednode are provided\n");
                 }
             }
 

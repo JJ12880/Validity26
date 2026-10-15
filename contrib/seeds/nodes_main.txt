@@ -1,23 +1,8 @@
-# List of fixed seed nodes for main network
+# List of fixed seed nodes for main network (the 0.13 client's pnSeed6_main)
 
 # IPv4 nodes
-185.197.251.199:15714
-109.123.251.87:15714
-84.46.245.181:15714
-45.137.91.173:15714
-45.138.55.128:15714
-
-
-# IPv6 nodes
-[2a02:c206:2210:3221::1]:15714
-[2a02:c206:2210:3222::1]:15714
-[2a02:c206:2210:3223::1]:15714
-[2a10:3781:525:1::1]:15714
-[2a10:3781:525:1::210]:15714
-[2a10:3781:525::1]:15714
-
-
-# Onion nodes
-jgsfxfwhm7vdabt5dxl42il7uenvysknyedtzuaiajo7w5bv5jf2jpid.onion:15714
-hqnztorcojz5gsomamrxgqvoriitu4dfeze46hclmwd5zht4eic6jfid.onion:15714
-5evnjurdgzorvoty6qnrgqnmb7xot237b4rafgnt3t2vth2hy2bju7id.onion:15714
+209.250.243.173:27913
+45.32.215.202:27913
+209.250.234.73:27913
+45.77.235.20:27913
+108.61.187.180:27913
