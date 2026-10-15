@@ -3500,6 +3500,15 @@ bool Chainstate::ActivateBestChain(BlockValidationState& state, std::shared_ptr<
             break;
         }
 
+        // VALIDITY: also write periodically inside the loop. Replaying blocks that are already on
+        // disk (after a restart with the chainstate behind the block data, or -reindex-chainstate)
+        // is one long call here, so with only the flush after the loop the periodic coins write
+        // (every 10 minutes during IBD) never ran until the whole replay was done. When nothing is
+        // due this is only a clock check. cs_main is not held here.
+        if (!FlushStateToDisk(state, FlushStateMode::PERIODIC)) {
+            return false;
+        }
+
         // We check interrupt only after giving ActivateBestChainStep a chance to run once so that we
         // never interrupt before connecting the genesis block during LoadChainTip(). Previously this
         // caused an assert() failure during interrupt in such cases as the UTXO DB flushing checks
