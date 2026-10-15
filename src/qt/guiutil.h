@@ -25,6 +25,7 @@
 
 #include <cassert>
 #include <chrono>
+#include <optional>
 #include <utility>
 
 class PlatformStyle;
@@ -176,6 +177,17 @@ namespace GUIUtil
 
     // Open debug.log
     void openDebugLogfile();
+
+    // VALIDITY: Open the data directory in the system file browser
+    void openDataDir();
+
+    // VALIDITY: Show a file selected in the system file browser
+    void showInFolder(const QString& path);
+
+    /** VALIDITY: Write a plain-text report for bug reports: versions and system details,
+     *  the config file with credentials removed, recent Windows crash records for Validity,
+     *  and the end of debug.log. Returns an error message on failure. */
+    std::optional<QString> writeDebugReport(const QString& path);
 
     // Open the config file
     bool openBitcoinConf();

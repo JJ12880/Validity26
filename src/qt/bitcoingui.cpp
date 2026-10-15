@@ -41,6 +41,7 @@
 #include <validation.h>
 
 #include <functional>
+#include <optional>
 
 #include <QAction>
 #include <QActionGroup>
@@ -48,6 +49,7 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QDateTime>
+#include <QDir>
 #include <QDragEnterEvent>
 #include <QInputDialog>
 #include <QKeySequence>
@@ -61,6 +63,7 @@
 #include <QSettings>
 #include <QShortcut>
 #include <QStackedWidget>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyle>
 #include <QSystemTrayIcon>
@@ -392,6 +395,14 @@ void BitcoinGUI::createActions()
     showHelpMessageAction->setMenuRole(QAction::NoRole);
     showHelpMessageAction->setStatusTip(tr("Show the %1 help message to get a list with possible Validity command-line options").arg(PACKAGE_NAME));
 
+    m_open_data_dir_action = new QAction(tr("Open &data folder"), this);
+    m_open_data_dir_action->setMenuRole(QAction::NoRole);
+    m_open_data_dir_action->setStatusTip(tr("Open the folder that holds the block data, wallets and debug.log"));
+
+    m_save_debug_report_action = new QAction(tr("Save debug &report…"), this);
+    m_save_debug_report_action->setMenuRole(QAction::NoRole);
+    m_save_debug_report_action->setStatusTip(tr("Save a file with system details and the debug log to attach to a bug report"));
+
     m_mask_values_action = new QAction(tr("&Mask values"), this);
     m_mask_values_action->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_M));
     m_mask_values_action->setStatusTip(tr("Mask the values in the Overview tab"));
@@ -402,6 +413,8 @@ void BitcoinGUI::createActions()
     connect(aboutQtAction, &QAction::triggered, qApp, QApplication::aboutQt);
     connect(optionsAction, &QAction::triggered, this, &BitcoinGUI::optionsClicked);
     connect(showHelpMessageAction, &QAction::triggered, this, &BitcoinGUI::showHelpMessageClicked);
+    connect(m_open_data_dir_action, &QAction::triggered, this, [] { GUIUtil::openDataDir(); });
+    connect(m_save_debug_report_action, &QAction::triggered, this, &BitcoinGUI::saveDebugReportClicked);
     connect(openRPCConsoleAction, &QAction::triggered, this, &BitcoinGUI::showDebugWindow);
     // prevents an open debug window from becoming stuck/unusable on client shutdown
     connect(quitAction, &QAction::triggered, rpcConsole, &QWidget::hide);
@@ -590,6 +603,9 @@ void BitcoinGUI::createMenuBar()
 
     QMenu *help = appMenuBar->addMenu(tr("&Help"));
     help->addAction(showHelpMessageAction);
+    help->addSeparator();
+    help->addAction(m_open_data_dir_action);
+    help->addAction(m_save_debug_report_action);
     help->addSeparator();
     help->addAction(aboutAction);
     help->addAction(aboutQtAction);
@@ -968,6 +984,30 @@ void BitcoinGUI::showDebugWindowActivateConsole()
 void BitcoinGUI::showHelpMessageClicked()
 {
     GUIUtil::bringToFront(helpMessageDialog);
+}
+
+void BitcoinGUI::saveDebugReportClicked()
+{
+    const QString file_name{QStringLiteral("validity-debug-report-%1.txt").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")))};
+    QString dir{QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)};
+    if (dir.isEmpty()) dir = QDir::homePath();
+    const QString path{GUIUtil::getSaveFileName(this, tr("Save debug report"), QDir(dir).filePath(file_name),
+                                                tr("Text file") + QLatin1String(" (*.txt)"), nullptr)};
+    if (path.isEmpty()) return;
+
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    const std::optional<QString> error{GUIUtil::writeDebugReport(path)};
+    QApplication::restoreOverrideCursor();
+    if (error) {
+        QMessageBox::critical(this, tr("Save debug report"), tr("Could not write the debug report:\n%1").arg(*error));
+        return;
+    }
+    QMessageBox::information(this, tr("Debug report saved"),
+        tr("The debug report was saved to:\n%1\n\n"
+           "Attach this file to your bug report. It contains system details, the end of your debug log and "
+           "your settings file with passwords removed. The log can include peer IP addresses and transaction IDs, "
+           "but never your private keys. You can open it in a text editor to check it first.").arg(QDir::toNativeSeparators(path)));
+    GUIUtil::showInFolder(path);
 }
 
 #ifdef ENABLE_WALLET

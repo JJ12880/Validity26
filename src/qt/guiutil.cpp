@@ -13,6 +13,7 @@
 #include <addresstype.h>
 #include <base58.h>
 #include <chainparams.h>
+#include <clientversion.h>
 #include <common/args.h>
 #include <interfaces/node.h>
 #include <key_io.h>
@@ -39,9 +40,12 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QDialog>
 #include <QDoubleValidator>
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
 #include <QFontMetrics>
@@ -56,6 +60,7 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPluginLoader>
+#include <QProcess>
 #include <QProgressDialog>
 #include <QRegularExpression>
 #include <QScreen>
@@ -64,7 +69,9 @@
 #include <QSize>
 #include <QStandardPaths>
 #include <QString>
+#include <QSysInfo>
 #include <QTextDocument> // for Qt::mightBeRichText
+#include <QTextStream>
 #include <QThread>
 #include <QUrlQuery>
 #include <QtGlobal>
@@ -428,6 +435,102 @@ void openDebugLogfile()
     /* Open debug.log with the associated application */
     if (fs::exists(pathDebug))
         QDesktopServices::openUrl(QUrl::fromLocalFile(PathToQString(pathDebug)));
+}
+
+void openDataDir()
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(PathToQString(gArgs.GetDataDirNet())));
+}
+
+void showInFolder(const QString& path)
+{
+#ifdef Q_OS_WIN
+    QProcess::startDetached(QStringLiteral("explorer.exe"), {QStringLiteral("/select,"), QDir::toNativeSeparators(path)});
+#else
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+#endif
+}
+
+std::optional<QString> writeDebugReport(const QString& path)
+{
+    static constexpr qint64 LOG_TAIL_BYTES{2 * 1024 * 1024};
+
+    QFile out(path);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        return out.errorString();
+    }
+    QTextStream ts(&out);
+    ts.setCodec("UTF-8");
+
+    ts << "=== Validity debug report ===\n";
+    ts << "Created: " << QDateTime::currentDateTimeUtc().toString(Qt::ISODate) << "\n";
+    ts << "Client: " << QString::fromStdString(FormatFullVersion()) << "\n";
+    ts << "Qt: " << qVersion() << "\n";
+    ts << "OS: " << QSysInfo::prettyProductName() << " (kernel " << QSysInfo::kernelVersion()
+       << ", " << QSysInfo::currentCpuArchitecture() << ")\n";
+#ifdef Q_OS_WIN
+    const QSettings cpu(QStringLiteral("HKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"), QSettings::NativeFormat);
+    ts << "CPU: " << cpu.value(QStringLiteral("ProcessorNameString")).toString().trimmed() << "\n";
+#endif
+    ts << "CPU threads: " << QThread::idealThreadCount() << "\n";
+    for (const QScreen* screen : QGuiApplication::screens()) {
+        ts << "Screen: " << screen->name() << " " << screen->size().width() << "x" << screen->size().height()
+           << " scale " << screen->devicePixelRatio() << "\n";
+    }
+    ts << "Data directory: " << PathToQString(gArgs.GetDataDirNet()) << "\n";
+
+    // Config file, with anything that looks like a credential removed
+    const fs::path conf_path{gArgs.GetConfigFilePath()};
+    ts << "\n=== " << PathToQString(conf_path) << " (credentials removed) ===\n";
+    QFile conf(PathToQString(conf_path));
+    if (conf.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        static const QRegularExpression secret(QStringLiteral("^(\\s*[^=#]*(rpcpassword|rpcauth|rpcuser|password|passphrase)[^=]*)=.*$"),
+                                               QRegularExpression::CaseInsensitiveOption);
+        while (!conf.atEnd()) {
+            QString line{QString::fromUtf8(conf.readLine()).trimmed()};
+            line.replace(secret, QStringLiteral("\\1=<removed>"));
+            ts << line << "\n";
+        }
+    } else {
+        ts << "(no config file)\n";
+    }
+
+#ifdef Q_OS_WIN
+    // When the GUI crashes outright, debug.log just stops; Windows records which module failed.
+    ts << "\n=== Recent Windows application errors for Validity (last 14 days) ===\n";
+    QProcess ps;
+    ps.start(QStringLiteral("powershell.exe"), {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-Command"),
+        QStringLiteral("$e = Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error','Windows Error Reporting'; StartTime=(Get-Date).AddDays(-14)} -MaxEvents 300 -ErrorAction SilentlyContinue | "
+                       "Where-Object { $_.Message -match 'validity' } | Select-Object -First 5; "
+                       "if ($e) { $e | Format-List TimeCreated,ProviderName,Id,Message | Out-String -Width 200 } else { 'None found.' }; "
+                       "try { 'Defender real-time protection: ' + (Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { 'Defender status: unavailable' }")});
+    if (ps.waitForFinished(20000)) {
+        ts << QString::fromLocal8Bit(ps.readAllStandardOutput()).trimmed() << "\n";
+    } else {
+        ps.kill();
+        ts << "(timed out reading the Windows event log)\n";
+    }
+#endif
+
+    // The end of debug.log, which includes the previous run if the wallet crashed
+    const fs::path log_path{LogInstance().m_file_path};
+    ts << "\n=== End of " << PathToQString(log_path) << " ===\n";
+    QFile log(PathToQString(log_path));
+    if (log.open(QIODevice::ReadOnly)) {
+        if (log.size() > LOG_TAIL_BYTES) {
+            log.seek(log.size() - LOG_TAIL_BYTES);
+            log.readLine(); // skip the partial first line
+        }
+        ts << QString::fromUtf8(log.readAll());
+    } else {
+        ts << "(could not open the log: " << log.errorString() << ")\n";
+    }
+
+    ts.flush();
+    if (out.error() != QFileDevice::NoError) {
+        return out.errorString();
+    }
+    return std::nullopt;
 }
 
 bool openBitcoinConf()

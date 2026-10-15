@@ -30,6 +30,13 @@ ModalOverlay::ModalOverlay(bool enable_wallet, QWidget* parent)
         ui->infoText->setVisible(false);
         ui->infoTextStrong->setText(tr("%1 is currently syncing.  It will download headers and blocks from peers and validate them until reaching the tip of the block chain.").arg(PACKAGE_NAME));
     }
+#ifdef Q_OS_WIN
+    // VALIDITY: antivirus scanning of the data folder was the main cause of slow first syncs on Windows
+    QLabel* sync_tip{enable_wallet ? ui->infoText : ui->infoTextStrong};
+    sync_tip->setText(sync_tip->text() + QStringLiteral("\n\n") +
+        tr("Tip: excluding the data folder from antivirus scanning can make the first sync much faster "
+           "(Windows Security → Virus & threat protection → Manage settings → Exclusions). Help → Open data folder shows where it is."));
+#endif
 
     m_animation.setTargetObject(this);
     m_animation.setPropertyName("pos");
