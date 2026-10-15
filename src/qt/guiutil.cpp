@@ -501,7 +501,9 @@ std::optional<QString> writeDebugReport(const QString& path)
     QProcess ps;
     ps.start(QStringLiteral("powershell.exe"), {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-Command"),
         QStringLiteral("$e = Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error','Windows Error Reporting'; StartTime=(Get-Date).AddDays(-14)} -MaxEvents 300 -ErrorAction SilentlyContinue | "
-                       "Where-Object { $_.Message -match 'validity' } | Select-Object -First 5; "
+                       // Validity as the failing program (the field labels are localized, the values are not);
+                       // skips other programs' reports that only list Validity as a related process
+                       "Where-Object { $_.Message -match 'P1: validity|: validity(-qt|d)?\\.exe, ' } | Select-Object -First 5; "
                        "if ($e) { $e | Format-List TimeCreated,ProviderName,Id,Message | Out-String -Width 200 } else { 'None found.' }; "
                        "try { 'Defender real-time protection: ' + (Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { 'Defender status: unavailable' }")});
     if (ps.waitForFinished(20000)) {
