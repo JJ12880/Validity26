@@ -91,7 +91,11 @@ using node::SnapshotMetadata;
 /** Time to wait between writing blocks/block index to disk. */
 static constexpr std::chrono::hours DATABASE_WRITE_INTERVAL{1};
 /** Time to wait between flushing chainstate to disk. */
-static constexpr std::chrono::hours DATABASE_FLUSH_INTERVAL{24};
+// VALIDITY: 1h instead of 24h, as in later Bitcoin Core (v29). Validity's UTXO set fits in a
+// typical dbcache, so the cache never fills during a full sync and nothing else forces a
+// coins write: a crash or power loss lost up to a day of sync progress (seen on a test VM:
+// 3.47M blocks). Periodic flushes use Sync(), which keeps the cache, so this costs little.
+static constexpr std::chrono::hours DATABASE_FLUSH_INTERVAL{1};
 const std::vector<std::string> CHECKLEVEL_DOC {
     "level 0 reads the blocks from disk",
     "level 1 verifies block validity",
@@ -2822,7 +2826,10 @@ bool Chainstate::FlushStateToDisk(
                 return FatalError(m_chainman.GetNotifications(), state, "Disk space is too low!", _("Disk space is too low!"));
             }
             // Flush the chainstate (which may refer to block index entries).
-            if (!CoinsTip().Flush())
+            // VALIDITY: a flush that is only due to the interval writes the changes but keeps the
+            // cache warm; shutdown (ALWAYS) and a full cache still empty it.
+            const bool empty_cache{mode != FlushStateMode::PERIODIC || fCacheLarge};
+            if (empty_cache ? !CoinsTip().Flush() : !CoinsTip().Sync())
                 return FatalError(m_chainman.GetNotifications(), state, "Failed to write to coin database");
             m_last_flush = nNow;
             full_flush_completed = true;
