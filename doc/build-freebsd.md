@@ -2,7 +2,7 @@
 
 **Updated for FreeBSD [12.3](https://www.freebsd.org/releases/12.3R/announce/)**
 
-This guide describes how to build blackmored, command-line utilities, and GUI on FreeBSD.
+This guide describes how to build validityd, command-line utilities, and GUI on FreeBSD.
 
 ## Preparation
 
@@ -16,16 +16,16 @@ pkg install autoconf automake boost-libs git gmake libevent libtool pkgconf
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
-### 2. Clone Blackcoin Repo
-Now that `git` and all the required dependencies are installed, let's clone the Blackcoin More repository to a directory. All build scripts and commands will run from this directory.
+### 2. Clone Validity Repo
+Now that `git` and all the required dependencies are installed, let's clone the Validity repository to a directory. All build scripts and commands will run from this directory.
 ``` bash
-git clone https://github.com/CoinBlack/blackcoin-more.git
+git clone https://github.com/RadiumCore/Validity.git
 ```
 
 ### 3. Install Optional Dependencies
 
 #### Wallet Dependencies
-It is not necessary to build wallet functionality to run either `blackmored` or `blackmore-qt`.
+It is not necessary to build wallet functionality to run either `validityd` or `validity-qt`.
 
 ###### Descriptor Wallet Support
 
@@ -93,11 +93,11 @@ pkg install python3 databases/py-sqlite3
 ```
 ---
 
-## Building Blackcoin More
+## Building Validity
 
 ### 1. Configuration
 
-There are many ways to configure Blackcoin More, here are a few common examples:
+There are many ways to configure Validity, here are a few common examples:
 
 ##### Descriptor Wallet and GUI:
 This explicitly enables the GUI and disables legacy wallet support, assuming `sqlite` and `qt` are installed.

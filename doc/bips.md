@@ -70,7 +70,7 @@ BIPs that are implemented by Bitcoin Core:
   Output Script Descriptors, and most of Script Expressions are implemented as of **v0.17.0** ([PR 13697](https://github.com/bitcoin/bitcoin/pull/13697)).
 * [`BIP 386`](https://github.com/bitcoin/bips/blob/master/bip-0386.mediawiki): tr() Output Script Descriptors are implemented as of **v22.0** ([PR 22051](https://github.com/bitcoin/bitcoin/pull/22051)).
 
-BIPs disabled in Blackcoin More (up-to-date up to **v23.1.0**):
+BIPs disabled in Validity (up-to-date up to **v23.1.0**):
 * [`BIP 125`](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki)
 * [`BIP 141`](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki)
 * [`BIP 143`](https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki)

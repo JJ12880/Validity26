@@ -2,7 +2,7 @@
 
 **Updated for OpenBSD [7.3](https://www.openbsd.org/73.html)**
 
-This guide describes how to build blackmored, command-line utilities, and GUI on OpenBSD.
+This guide describes how to build validityd, command-line utilities, and GUI on OpenBSD.
 
 ## Preparation
 
@@ -17,17 +17,17 @@ pkg_add autoconf automake python
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
-### 2. Clone Blackcoin Repo
-Clone the Blackcoin More repository to a directory. All build scripts and commands will run from this directory.
+### 2. Clone Validity Repo
+Clone the Validity repository to a directory. All build scripts and commands will run from this directory.
 ``` bash
-git clone https://github.com/CoinBlack/blackcoin-more.git
+git clone https://github.com/RadiumCore/Validity.git
 ```
 
 ### 3. Install Optional Dependencies
 
 #### Wallet Dependencies
 
-It is not necessary to build wallet functionality to run either `blackmored` or `blackmore-qt`.
+It is not necessary to build wallet functionality to run either `validityd` or `validity-qt`.
 
 ###### Descriptor Wallet Support
 
@@ -58,13 +58,13 @@ export BDB_PREFIX="/path/to/bitcoin/depends/x86_64-unknown-openbsd"
 #### GUI Dependencies
 ###### Qt5
 
-Blackcoin More includes a GUI built with the cross-platform Qt Framework. To compile the GUI, Qt 5 is required.
+Validity includes a GUI built with the cross-platform Qt Framework. To compile the GUI, Qt 5 is required.
 
 ```bash
 pkg_add qt5
 ```
 
-## Building Blackcoin More
+## Building Validity
 
 **Important**: Use `gmake` (the non-GNU `make` will exit with an error).
 
@@ -80,7 +80,7 @@ export AUTOMAKE_VERSION=1.16
 
 ### 1. Configuration
 
-There are many ways to configure Blackcoin More, here are a few common examples:
+There are many ways to configure Validity, here are a few common examples:
 
 ##### Descriptor Wallet and GUI:
 This enables the GUI and descriptor wallet support, assuming `sqlite` and `qt5` are installed.

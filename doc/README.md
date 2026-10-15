@@ -1,30 +1,30 @@
-Blackcoin More
+Validity
 =============
 
 Setup
 ---------------------
-Blackcoin More is the original Blackcoin client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Blackcoin transactions, which requires a few hundred gigabytes of disk space. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
+Validity is the reference Validity client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Validity transactions, which requires about 7 GB of disk space (October 2026). Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
 
-To download Blackcoin More, visit [blackcoinmore.org](https://blackcoinmore.org).
+To download Validity, visit [the Validity releases page](https://github.com/RadiumCore/Validity/releases).
 
 Running
 ---------------------
-The following are some helpful notes on how to run Blackcoin More on your native platform.
+The following are some helpful notes on how to run Validity on your native platform.
 
 ### Unix
 
 Unpack the files into a directory and run:
 
-- `bin/blackmore-qt` (GUI) or
-- `bin/blackmored` (headless)
+- `bin/validity-qt` (GUI) or
+- `bin/validityd` (headless)
 
 ### Windows
 
-Unpack the files into a directory, and then run blackmore-qt.exe.
+Unpack the files into a directory, and then run validity-qt.exe.
 
 ### macOS
 
-Drag Blackcoin More to your applications folder, and then run Blackcoin More.
+Drag Validity to your applications folder, and then run Validity.
 
 ### Need Help?
 

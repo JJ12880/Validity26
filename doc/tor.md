@@ -1,6 +1,6 @@
 # TOR SUPPORT IN BITCOIN
 
-It is possible to run Blackcoin More as a Tor onion service, and connect to such services.
+It is possible to run Validity as a Tor onion service, and connect to such services.
 
 The following directions assume you have a Tor proxy running on port 9050. Many distributions default to having a SOCKS proxy listening on port 9050, but others may not. In particular, the Tor Browser Bundle defaults to listening on port 9150.
 ## Compatibility
@@ -62,7 +62,7 @@ outgoing connections, but more is possible.
 
 In a typical situation, this suffices to run behind a Tor proxy:
 
-    ./blackmored -proxy=127.0.0.1:9050
+    ./validityd -proxy=127.0.0.1:9050
 
 ## 2. Automatically create a Bitcoin Core onion service
 
@@ -156,11 +156,11 @@ You can also manually configure your node to be reachable from the Tor network.
 Add these lines to your `/etc/tor/torrc` (or equivalent config file):
 
     HiddenServiceDir /var/lib/tor/bitcoin-service/
-    HiddenServicePort 15714 127.0.0.1:15715
+    HiddenServicePort 27913 127.0.0.1:27916
 
 The directory can be different of course, but virtual port numbers should be equal to
-your bitcoind's P2P listen port (15714 by default), and target addresses and ports
-should be equal to binding address and port for inbound Tor connections (127.0.0.1:15715 by default).
+your validityd's P2P listen port (27913 by default), and target addresses and ports
+should be equal to binding address and port for inbound Tor connections (127.0.0.1:27916 by default).
 
     -externalip=X   You can tell bitcoin about its publicly reachable addresses using
                     this option, and this can be an onion address. Given the above
@@ -200,7 +200,7 @@ as well, use `discover` instead:
 
     ./bitcoind ... -discover
 
-and open port 15714 on your firewall (or use port mapping, i.e., `-upnp`).
+and open port 27913 on your firewall (or use port mapping, i.e., `-upnp`).
 
 If you only want to use Tor to reach .onion addresses, but not use it as a proxy
 for normal IPv4/IPv6 communication, use:

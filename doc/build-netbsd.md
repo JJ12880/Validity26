@@ -2,7 +2,7 @@
 
 Updated for NetBSD [9.2](https://netbsd.org/releases/formal-9/NetBSD-9.2.html).
 
-This guide describes how to build blackmored, command-line utilities, and GUI on NetBSD.
+This guide describes how to build validityd, command-line utilities, and GUI on NetBSD.
 
 ## Preparation
 
@@ -34,12 +34,12 @@ Then, when configuring, pass the following:
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
-### 2. Clone Blackcoin Repo
+### 2. Clone Validity Repo
 
-Clone the Blackcoin More repository to a directory. All build scripts and commands will run from this directory.
+Clone the Validity repository to a directory. All build scripts and commands will run from this directory.
 
 ```bash
-git clone https://github.com/CoinBlack/blackcoin-more.git
+git clone https://github.com/RadiumCore/Validity.git
 ```
 
 ### 3. Install Optional Dependencies
@@ -66,7 +66,7 @@ pkgin install db4
 
 #### GUI Dependencies
 
-Blackcoin More includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install `qt5`.
+Validity includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install `qt5`.
 
 ```bash
 pkgin install qt5
