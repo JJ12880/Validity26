@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>org.blackcoin.blackmored</string>
+	<string>org.validity.validityd</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/blackmored</string>
+		<string>/usr/local/bin/validityd</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

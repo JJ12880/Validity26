@@ -2,26 +2,26 @@
 
 # backward compatibility for existing gentoo layout 
 #
-if [ -d "/var/lib/blackmore/.blackmore" ]; then
-	BITCOIND_DEFAULT_DATADIR="/var/lib/blackmore/.blackmore"
+if [ -d "/var/lib/validity/.validity" ]; then
+	BITCOIND_DEFAULT_DATADIR="/var/lib/validity/.validity"
 else
-	BITCOIND_DEFAULT_DATADIR="/var/lib/blackmored"
+	BITCOIND_DEFAULT_DATADIR="/var/lib/validityd"
 fi
 
-BITCOIND_CONFIGFILE=${BITCOIND_CONFIGFILE:-/etc/blackmore/blackmore.conf}
-BITCOIND_PIDDIR=${BITCOIND_PIDDIR:-/var/run/blackmored}
-BITCOIND_PIDFILE=${BITCOIND_PIDFILE:-${BITCOIND_PIDDIR}/blackmored.pid}
+BITCOIND_CONFIGFILE=${BITCOIND_CONFIGFILE:-/etc/validity/validity.conf}
+BITCOIND_PIDDIR=${BITCOIND_PIDDIR:-/var/run/validityd}
+BITCOIND_PIDFILE=${BITCOIND_PIDFILE:-${BITCOIND_PIDDIR}/validityd.pid}
 BITCOIND_DATADIR=${BITCOIND_DATADIR:-${BITCOIND_DEFAULT_DATADIR}}
-BITCOIND_USER=${BITCOIND_USER:-${BITCOIN_USER:-blackcoin}}
-BITCOIND_GROUP=${BITCOIND_GROUP:-blackcoin}
-BITCOIND_BIN=${BITCOIND_BIN:-/usr/bin/blackmored}
+BITCOIND_USER=${BITCOIND_USER:-${BITCOIN_USER:-validity}}
+BITCOIND_GROUP=${BITCOIND_GROUP:-validity}
+BITCOIND_BIN=${BITCOIND_BIN:-/usr/bin/validityd}
 BITCOIND_NICE=${BITCOIND_NICE:-${NICELEVEL:-0}}
 BITCOIND_OPTS="${BITCOIND_OPTS:-${BITCOIN_OPTS}}"
 
-name="Blackcoin More Daemon"
-description="Blackcoin cryptocurrency P2P network daemon"
+name="Validity Daemon"
+description="Validity cryptocurrency P2P network daemon"
 
-command="/usr/bin/blackmored"
+command="/usr/bin/validityd"
 command_args="-pid=\"${BITCOIND_PIDFILE}\" \
 		-conf=\"${BITCOIND_CONFIGFILE}\" \
 		-datadir=\"${BITCOIND_DATADIR}\" \
@@ -72,7 +72,7 @@ checkconfig()
 	if grep -qs '^rpcuser=' "${BITCOIND_CONFIGFILE}" && \
 		! grep -qs '^rpcpassword=' "${BITCOIND_CONFIGFILE}" ; then
 		eerror ""
-		eerror "ERROR: You must set a secure rpcpassword to run blackmored."
+		eerror "ERROR: You must set a secure rpcpassword to run validityd."
 		eerror "The setting must appear in ${BITCOIND_CONFIGFILE}"
 		eerror ""
 		eerror "This password is security critical to securing wallets "
@@ -85,7 +85,7 @@ checkconfig()
 		eerror "It is recommended that you also set alertnotify so you are "
 		eerror "notified of problems:"
 		eerror ""
-		eerror "ie: alertnotify=echo %%s | mail -s \"Blackcoin Alert\"" \
+		eerror "ie: alertnotify=echo %%s | mail -s \"Validity Alert\"" \
 			"admin@foo.com"
 		eerror ""
 		return 1

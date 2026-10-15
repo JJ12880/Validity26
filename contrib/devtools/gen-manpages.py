@@ -8,12 +8,12 @@ import sys
 import tempfile
 
 BINARIES = [
-'src/blackmored',
-'src/blackmore-cli',
-'src/blackmore-tx',
-'src/blackmore-wallet',
-'src/blackmore-util',
-'src/qt/blackmore-qt',
+'src/validityd',
+'src/validity-cli',
+'src/validity-tx',
+'src/validity-wallet',
+'src/validity-util',
+'src/qt/validity-qt',
 ]
 
 # Paths to external utilities.

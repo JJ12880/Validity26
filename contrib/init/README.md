@@ -1,11 +1,11 @@
 Sample configuration files for:
 ```
-systemd: blackmored.service
-Upstart: blackmored.conf
-OpenRC:  blackmored.openrc
-         blackmored.openrcconf
-CentOS:  blackmored.init
-macOS:   org.blackcoin.blackmored.plist
+systemd: validityd.service
+Upstart: validityd.conf
+OpenRC:  validityd.openrc
+         validityd.openrcconf
+CentOS:  validityd.init
+macOS:   org.validity.validityd.plist
 ```
 have been made available to assist packagers in creating node packages here.
 

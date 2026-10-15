@@ -1,39 +1,39 @@
 # It is not recommended to modify this file in-place, because it will
 # be overwritten during package upgrades. If you want to add further
 # options or overwrite existing ones then use
-# $ systemctl edit blackmored.service
+# $ systemctl edit validityd.service
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
-# /etc/blackmore/blackmore.conf, but keep in mind those explicitly
+# /etc/validity/validity.conf, but keep in mind those explicitly
 # specified as arguments in ExecStart= will override those in the
 # config file.
 
 [Unit]
-Description=Blackcoin daemon
-Documentation=https://github.com/CoinBlack/blackcoin-more/blob/master/doc/init.md
+Description=Validity daemon
+Documentation=https://github.com/CoinBlack/validity-more/blob/master/doc/init.md
 
 # https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/blackmored -pid=/run/blackmored/blackmored.pid \
-                            -conf=/etc/blackmore/blackmore.conf \
-                            -datadir=/var/lib/blackmored \
+ExecStart=/usr/bin/validityd -pid=/run/validityd/validityd.pid \
+                            -conf=/etc/validity/validity.conf \
+                            -datadir=/var/lib/validityd \
                             -startupnotify='systemd-notify --ready' \
                             -shutdownnotify='systemd-notify --stopping'
 
 # Make sure the config directory is readable by the service user
 PermissionsStartOnly=true
-ExecStartPre=/bin/chgrp blackcoin /etc/blackmore
+ExecStartPre=/bin/chgrp validity /etc/validity
 
 # Process management
 ####################
 
 Type=notify
 NotifyAccess=all
-PIDFile=/run/blackmored/blackmored.pid
+PIDFile=/run/validityd/validityd.pid
 
 Restart=on-failure
 TimeoutStartSec=infinity
@@ -42,20 +42,20 @@ TimeoutStopSec=600
 # Directory creation and permissions
 ####################################
 
-# Run as blackcoin:blackcoin
-User=blackcoin
-Group=blackcoin
+# Run as validity:validity
+User=validity
+Group=validity
 
-# /run/blackmored
-RuntimeDirectory=blackmored
+# /run/validityd
+RuntimeDirectory=validityd
 RuntimeDirectoryMode=0710
 
-# /etc/blackmore
-ConfigurationDirectory=blackmore
+# /etc/validity
+ConfigurationDirectory=validity
 ConfigurationDirectoryMode=0710
 
-# /var/lib/blackmored
-StateDirectory=blackmored
+# /var/lib/validityd
+StateDirectory=validityd
 StateDirectoryMode=0710
 
 # Hardening measures

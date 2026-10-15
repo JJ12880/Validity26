@@ -34,16 +34,16 @@
   <string>????</string>
 
   <key>CFBundleExecutable</key>
-  <string>Blackmore-Qt</string>
+  <string>Validity-Qt</string>
 
   <key>CFBundleName</key>
-  <string>Blackmore-Qt</string>
+  <string>Validity-Qt</string>
 
   <key>LSHasLocalizedDisplayName</key>
   <true/>
 
   <key>CFBundleIdentifier</key>
-  <string>org.blackcoin.Blackmore-Qt</string>
+  <string>org.validity.Validity-Qt</string>
 
   <key>CFBundleURLTypes</key>
   <array>
@@ -51,10 +51,10 @@
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
       <key>CFBundleURLName</key>
-      <string>org.blackcoin.BlackcoinPayment</string>
+      <string>org.validity.ValidityPayment</string>
       <key>CFBundleURLSchemes</key>
       <array>
-        <string>bitcoin</string>
+        <string>validity</string>
       </array>
     </dict>
   </array>

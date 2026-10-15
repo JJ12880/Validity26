@@ -14,14 +14,14 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-            VALUE "CompanyName",        "Blackcoin"
-            VALUE "FileDescription",    "blackmore-tx (CLI Blackcoin transaction editor utility)"
+            VALUE "CompanyName",        "Validity"
+            VALUE "FileDescription",    "validity-tx (CLI Validity transaction editor utility)"
             VALUE "FileVersion",        PACKAGE_VERSION
-            VALUE "InternalName",       "blackmore-tx"
+            VALUE "InternalName",       "validity-tx"
             VALUE "LegalCopyright",     COPYRIGHT_STR
             VALUE "LegalTrademarks1",   "Distributed under the MIT software license, see the accompanying file COPYING or http://www.opensource.org/licenses/mit-license.php."
-            VALUE "OriginalFilename",   "blackmore-tx.exe"
-            VALUE "ProductName",        "blackmore-tx"
+            VALUE "OriginalFilename",   "validity-tx.exe"
+            VALUE "ProductName",        "validity-tx"
             VALUE "ProductVersion",     PACKAGE_VERSION
         END
     END

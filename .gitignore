@@ -151,34 +151,34 @@ dist/
 
 /ci/scratch/
 
-# Blackcoin specifics
+# Validity specifics
 
 #binaries
-src/blackmore
-src/blackmored
-src/blackmore-cli
-src/blackmore-gui
-src/blackmore-node
-src/blackmore-tx
-src/blackmore-util
-src/blackmore-chainstate
-src/blackmore-wallet
+src/validity
+src/validityd
+src/validity-cli
+src/validity-gui
+src/validity-node
+src/validity-tx
+src/validity-util
+src/validity-chainstate
+src/validity-wallet
 src/test/test_blackmore
 src/qt/test/test_blackmore-qt
 
 # autoreconf
-src/qt/blackmore-qt.config
-src/qt/blackmore-qt.creator
-src/qt/blackmore-qt.creator.user
-src/qt/blackmore-qt.files
-src/qt/blackmore-qt.includes
+src/qt/validity-qt.config
+src/qt/validity-qt.creator
+src/qt/validity-qt.creator.user
+src/qt/validity-qt.files
+src/qt/validity-qt.includes
 
 # Compilation and Qt preprocessor part
-src/qt/blackmore-qt
-Blackmore-Qt.app
+src/qt/validity-qt
+Validity-Qt.app
 
 # Unit-tests
-blackmore-qt_test
+validity-qt_test
 
 # Output from running db62 installation
 db62/
