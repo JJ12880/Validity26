@@ -216,10 +216,12 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // VALIDITY-PORT: From validity-ref checkpointData
-            .nTime    = 1753586032,
-            .nTxCount = 10736810,
-            .dTxRate  = 10.0,
+            // VALIDITY: getchaintxstats 525600 at block 5957799 (cfe2158c...). dTxRate was 10.0 tx/s,
+            // ~300x the real rate (about 2 tx per 64 s block), so sync progress read ~0.7% at 23%
+            // of the chain and the GUI estimated weeks left. Update together with assumevalid.
+            .nTime    = 1792093616,
+            .nTxCount = 12029863,
+            .dTxRate  = 0.0336,
         };
 
         // VALIDITY-PORT: Dev fund address (p2sh multisig)
