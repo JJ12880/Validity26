@@ -1635,7 +1635,10 @@ bool PeerManagerImpl::ProcessNetBlockHeaders(CNode& pfrom, const std::vector<CBl
         if (!m_chainman.IsInitialBlockDownload() || (gArgs.GetBoolArg("-headerspamfilterduringibd", DEFAULT_HEADER_SPAM_FILTER_DURING_IBD) && m_chainman.IsInitialBlockDownload()))
         {
             LOCK(cs_main);
-            CNodeHeaders& headers = ServiceHeaders(pfrom.GetAddrLocal());
+            // VALIDITY-PORT: count per peer. GetAddrLocal() is our own address as the peer reports it,
+            // which pooled every peer into one counter, so a new block announced by ~15+ peers
+            // tripped the filter and an honest peer was punished.
+            CNodeHeaders& headers = ServiceHeaders(pfrom.addr);
             const CBlockIndex *pindexLast = ppindex == nullptr ? nullptr : *ppindex;
             headers.addHeaders(pindexFirst, pindexLast);
             return headers.updateState(state, ret);

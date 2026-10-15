@@ -31,7 +31,7 @@ static const int DISCOURAGEMENT_THRESHOLD{100};
 /** Maximum number of outstanding CMPCTBLOCK requests for the same block. */
 static const unsigned int MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK = 3;
 /** Default for -headerspamfilter, use header spam filter */
-static const bool DEFAULT_HEADER_SPAM_FILTER = true;
+static const bool DEFAULT_HEADER_SPAM_FILTER = false; // VALIDITY-PORT: off by default, as in the 0.13 client
 /** Default for -headerspamfiltermaxsize, maximum size of the list of indexes in the header spam filter */
 static const unsigned int DEFAULT_HEADER_SPAM_FILTER_MAX_SIZE = 500;
 /** Default for -headerspamfiltermaxavg, maximum average size of an index occurrence in the header spam filter */
