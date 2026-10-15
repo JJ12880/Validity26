@@ -36,6 +36,10 @@ public:
     void setClientModel(ClientModel* clientModel);
     void setWalletModel(WalletModel* walletModel);
 
+public Q_SLOTS:
+    //! VALIDITY: Settings > Mask values was toggled; redraw the amounts
+    void setPrivacy(bool privacy);
+
 protected:
     // VALIDITY: Timers and wallet queries only run while the page is shown.
     void showEvent(QShowEvent* event) override;
@@ -46,6 +50,8 @@ private:
     ClientModel* clientModel{nullptr};
     WalletModel* walletModel{nullptr};
     const PlatformStyle* m_platform_style;
+    bool m_privacy{false}; // VALIDITY: mask the wallet's own amounts (Settings > Mask values)
+    bool privacy() const { return m_privacy; }
     QTimer* m_refresh_timer{nullptr};
     QTimer* m_stake_timer{nullptr};
     QTimer* m_anim_timer{nullptr};

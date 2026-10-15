@@ -278,6 +278,10 @@ public:
     //! Get wallet enabled for staking
     virtual bool getEnabledStaking() = 0;
 
+    //! VALIDITY: Set the reserve balance (kept out of staking) on the running wallet, like the
+    //! reservebalance RPC; the -reservebalance setting still applies at the next load.
+    virtual void setReserveBalance(CAmount amount) = 0;
+
     //! VALIDITY: Sum staking/minting rewards of coinstake and coinbase transactions that
     //! are in the active chain, bucketed by age relative to `now`, without blocking.
     virtual bool tryGetStakeReport(WalletStakeReport& report, int64_t now) = 0;

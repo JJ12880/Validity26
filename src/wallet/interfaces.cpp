@@ -537,6 +537,10 @@ public:
     {
         return m_wallet->m_enabled_staking;
     }
+    void setReserveBalance(CAmount amount) override
+    {
+        m_wallet->m_reserve_balance = amount;
+    }
     bool tryGetStakeReport(WalletStakeReport& report, int64_t now) override
     {
         // VALIDITY: One pass over mapWallet so the GUI does not have to walk every

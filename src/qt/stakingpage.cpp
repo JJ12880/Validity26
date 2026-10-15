@@ -30,9 +30,21 @@
 #include <algorithm>
 #include <cmath>
 
-// Truncate VAL amounts to 4 decimal places for cleaner display
-static QString formatVal4(BitcoinUnit unit, CAmount amount)
+// Show amounts with at most 4 decimal places for cleaner display
+static QString formatVal4(BitcoinUnit unit, CAmount amount, bool privacy = false)
 {
+    // VALIDITY: honour Settings > Mask values like the Overview page
+    if (privacy) {
+        return BitcoinUnits::formatWithPrivacy(unit, amount, BitcoinUnits::SeparatorStyle::ALWAYS, true);
+    }
+    // VALIDITY: round to 4 decimals instead of truncating, but never turn a non-zero amount into 0
+    const int drop{BitcoinUnits::decimals(unit) - 4};
+    if (drop > 0) {
+        CAmount step{1};
+        for (int i = 0; i < drop; ++i) step *= 10;
+        const CAmount rounded{(amount >= 0 ? amount + step / 2 : amount - step / 2) / step * step};
+        if (rounded != 0 || amount == 0) amount = rounded;
+    }
     QString s = BitcoinUnits::formatWithUnit(unit, amount, false, BitcoinUnits::SeparatorStyle::ALWAYS);
     // Find the decimal point and truncate to 4 places after it
     int dot = s.indexOf('.');
@@ -138,6 +150,17 @@ void StakingPage::setClientModel(ClientModel* model)
     clientModel = model;
 }
 
+void StakingPage::setPrivacy(bool privacy)
+{
+    m_privacy = privacy;
+    if (!walletModel) return;
+    onEncryptionStatusChanged(); // reserve
+    if (m_page_visible) {
+        updateStakingStatus();   // your weight
+        updateStakingReport();   // rewards
+    }
+}
+
 void StakingPage::setWalletModel(WalletModel* model)
 {
     walletModel = model;
@@ -226,16 +249,20 @@ void StakingPage::onEncryptionStatusChanged()
 {
     if (!walletModel) return;
     WalletModel::EncryptionStatus status = walletModel->getEncryptionStatus();
-    ui->btnUnlockStaking->setVisible(status == WalletModel::Locked);
-    ui->btnStopStaking->setVisible(status != WalletModel::Locked);
+    // VALIDITY: an unencrypted wallet can't be locked, so "Stop Staking" pauses staking instead
+    // (it used to try to lock and silently do nothing) and the other button resumes it.
+    // A wallet without private keys can't stake at all, so it gets neither button.
+    const bool paused{status == WalletModel::Unencrypted && !walletModel->wallet().getEnabledStaking()};
+    ui->btnUnlockStaking->setText(paused ? tr("Start Staking") : tr("Unlock Wallet for Staking"));
+    ui->btnUnlockStaking->setVisible(status == WalletModel::Locked || paused);
+    ui->btnStopStaking->setVisible(status != WalletModel::Locked && status != WalletModel::NoKeys && !paused);
 
     // Update reserve balance display
     if (walletModel->getOptionsModel()) {
-        QString reserveStr = walletModel->getOptionsModel()->data(
-            walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), Qt::EditRole).toString();
-        CAmount reserveAmount = ParseMoney(reserveStr.toStdString()).value_or(0);
+        const CAmount reserveAmount{walletModel->getOptionsModel()->data(
+            walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), Qt::EditRole).toLongLong()};
         BitcoinUnit unit = walletModel->getOptionsModel()->getDisplayUnit();
-        ui->labelReserveBalance->setText(formatVal4(unit, reserveAmount));
+        ui->labelReserveBalance->setText(formatVal4(unit, reserveAmount, privacy()));
     }
 
     // VALIDITY: If the wallet was relocked while the gauges wait for staking to start,
@@ -436,7 +463,7 @@ void StakingPage::updateStakingStatus()
     if (m_anim_timer->isActive() && !m_spinnerMode) {
         BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
         uint64_t nWeight = walletModel->getStakeWeight();
-        ui->labelYourWeight->setText(formatVal4(unit, nWeight));
+        ui->labelYourWeight->setText(formatVal4(unit, nWeight, privacy()));
         return;
     }
 
@@ -454,7 +481,7 @@ void StakingPage::updateStakingStatus()
         bool fStaking = walletModel->wallet().getEnabledStaking() && (nInterval != 0) && (nWeight != 0);
 
         BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
-        ui->labelYourWeight->setText(formatVal4(unit, nWeight));
+        ui->labelYourWeight->setText(formatVal4(unit, nWeight, privacy()));
 
         // VALIDITY: Fill-to-target animation already running; don't restart it.
         if (m_anim_timer->isActive()) return;
@@ -523,7 +550,7 @@ void StakingPage::updateStakingStatus()
     }
 
     BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
-    ui->labelYourWeight->setText(formatVal4(unit, nWeight));
+    ui->labelYourWeight->setText(formatVal4(unit, nWeight, privacy()));
 
     // Track staking state — but NEVER trigger animation from here if one already ran
     m_wasStaking = fStaking;
@@ -608,17 +635,21 @@ void StakingPage::updateStakingReport()
     m_last_report.start();
 
     BitcoinUnit unit = walletModel->getOptionsModel() ? walletModel->getOptionsModel()->getDisplayUnit() : BitcoinUnit::BTC;
-    ui->labelStaking24h->setText(formatVal4(unit, report.last_24h));
-    ui->labelStaking7d->setText(formatVal4(unit, report.last_7d));
-    ui->labelStaking30d->setText(formatVal4(unit, report.last_30d));
-    ui->labelStaking1y->setText(formatVal4(unit, report.last_1y));
-    ui->labelStakingTotal->setText(formatVal4(unit, report.total));
+    ui->labelStaking24h->setText(formatVal4(unit, report.last_24h, privacy()));
+    ui->labelStaking7d->setText(formatVal4(unit, report.last_7d, privacy()));
+    ui->labelStaking30d->setText(formatVal4(unit, report.last_30d, privacy()));
+    ui->labelStaking1y->setText(formatVal4(unit, report.last_1y, privacy()));
+    ui->labelStakingTotal->setText(formatVal4(unit, report.total, privacy()));
 }
 
 void StakingPage::onStopStakingClicked()
 {
     if (!walletModel) return;
-    walletModel->setWalletLocked(true);
+    if (walletModel->getEncryptionStatus() == WalletModel::Unencrypted) {
+        walletModel->wallet().setEnabledStaking(false); // can't lock; pause the staker instead
+    } else {
+        walletModel->setWalletLocked(true);
+    }
     onEncryptionStatusChanged();
     updateStakingStatus();
 }
@@ -627,29 +658,39 @@ void StakingPage::onSetReserveClicked()
 {
     if (!walletModel || !walletModel->getOptionsModel()) return;
 
-    // Get current reserve
-    QString currentStr = walletModel->getOptionsModel()->data(
-        walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), Qt::EditRole).toString();
-    CAmount currentAmount = ParseMoney(currentStr.toStdString()).value_or(0);
+    // Get current reserve (in satoshis)
+    const CAmount currentAmount{walletModel->getOptionsModel()->data(
+        walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), Qt::EditRole).toLongLong()};
 
     bool ok;
-    double currentVal = (double)currentAmount / 100000000.0;
+    double currentVal = (double)currentAmount / COIN;
     double newVal = QInputDialog::getDouble(this, tr("Set Reserve Balance"),
         tr("Amount of VAL to keep reserved (not used for staking):"),
         currentVal, 0, 9000000, 8, &ok);
 
     if (ok) {
-        CAmount newAmount = (CAmount)(newVal * 100000000.0);
-        QString newStr = QString::fromStdString(FormatMoney(newAmount));
+        // VALIDITY: round, don't truncate (0.29 * COIN is 28999999.99...)
+        const CAmount newAmount{qRound64(newVal * COIN)};
         walletModel->getOptionsModel()->setData(
-            walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), newStr);
+            walletModel->getOptionsModel()->index(OptionsModel::ReserveBalance, 0), qlonglong{newAmount});
+        // VALIDITY: apply it to the running wallet now, like the reservebalance RPC; the saved
+        // setting covers the next start. (It used to take effect only after a restart.)
+        walletModel->wallet().setReserveBalance(newAmount);
         onEncryptionStatusChanged(); // refresh display
+        updateStakingStatus();
     }
 }
 
 void StakingPage::onUnlockForStakingClicked()
 {
     if (!walletModel) return;
+    if (walletModel->getEncryptionStatus() == WalletModel::Unencrypted) {
+        // VALIDITY: the button reads "Start Staking" here and resumes a paused staker
+        walletModel->wallet().setEnabledStaking(true);
+        onEncryptionStatusChanged();
+        updateStakingStatus();
+        return;
+    }
     if (walletModel->getEncryptionStatus() == WalletModel::Locked) {
         AskPassphraseDialog dlg(AskPassphraseDialog::UnlockStaking, this);
         dlg.setModel(walletModel);
