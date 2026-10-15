@@ -41,6 +41,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QEventLoop>
 #include <QDialog>
 #include <QDoubleValidator>
 #include <QFile>
@@ -73,6 +74,7 @@
 #include <QTextDocument> // for Qt::mightBeRichText
 #include <QTextStream>
 #include <QThread>
+#include <QTimer>
 #include <QUrlQuery>
 #include <QtGlobal>
 
@@ -506,11 +508,21 @@ std::optional<QString> writeDebugReport(const QString& path)
                        "Where-Object { $_.Message -match 'P1: validity|: validity(-qt|d)?\\.exe, ' } | Select-Object -First 5; "
                        "if ($e) { $e | Format-List TimeCreated,ProviderName,Id,Message | Out-String -Width 200 } else { 'None found.' }; "
                        "try { 'Defender real-time protection: ' + (Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { 'Defender status: unavailable' }")});
-    if (ps.waitForFinished(20000)) {
+    // Wait in a local event loop rather than waitForFinished(), so the window keeps repainting
+    // (no "Not responding") while user input is held back until the report is written.
+    {
+        QEventLoop loop;
+        QObject::connect(&ps, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), &loop, &QEventLoop::quit);
+        QObject::connect(&ps, &QProcess::errorOccurred, &loop, &QEventLoop::quit);
+        QTimer::singleShot(15000, &loop, &QEventLoop::quit);
+        if (ps.state() != QProcess::NotRunning) loop.exec(QEventLoop::ExcludeUserInputEvents);
+    }
+    if (ps.state() == QProcess::NotRunning && ps.exitStatus() == QProcess::NormalExit && ps.error() != QProcess::FailedToStart) {
         ts << QString::fromLocal8Bit(ps.readAllStandardOutput()).trimmed() << "\n";
     } else {
         ps.kill();
-        ts << "(timed out reading the Windows event log)\n";
+        ps.waitForFinished(1000);
+        ts << "(timed out or could not run PowerShell to read the Windows event log)\n";
     }
 #endif
 
