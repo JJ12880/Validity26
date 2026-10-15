@@ -206,8 +206,14 @@ util::Result<std::unique_ptr<AddrMan>> LoadAddrman(const NetGroupManager& netgro
         LogPrintf("Creating new peers.dat because the file version was not compatible (%s). Original backed up to peers.dat.bak\n", fs::quoted(fs::PathToString(path_addr)));
         DumpPeerAddresses(args, *addrman);
     } catch (const std::exception& e) {
-        return util::Error{strprintf(_("Invalid or corrupt peers.dat (%s). If you believe this is a bug, please report it to %s. As a workaround, you can move the file (%s) out of the way (rename, move, or delete) to have a new one created on the next start."),
-                                     e.what(), PACKAGE_BUGREPORT, fs::quoted(fs::PathToString(path_addr)))};
+        // VALIDITY: a 13.x data folder fails here first, so say what to do about that
+        return util::Error{strprintf(_("Invalid or corrupt peers.dat (%s).\n\n"
+                                       "If this data folder was used by Validity 13.x, version 26 can't use it as it is. Back up wallet.dat, "
+                                       "then start this version with a new, empty data folder and copy the wallet.dat backup into it. "
+                                       "Leave the 13.x folder unchanged so the old wallet keeps working.\n\n"
+                                       "Otherwise, move the file (%s) out of the way (rename, move, or delete) to have a new one created on the next start. "
+                                       "If you believe this is a bug, please report it to %s."),
+                                     e.what(), fs::quoted(fs::PathToString(path_addr)), PACKAGE_BUGREPORT)};
     }
     return {std::move(addrman)}; // std::move should be unnecessary but is temporarily needed to work around clang bug
                                  // (https://github.com/bitcoin/bitcoin/pull/25977#issuecomment-1561270092)

@@ -106,8 +106,11 @@ static ChainstateLoadResult CompleteChainstateInitialization(
         // Refuse to load unsupported database format.
         // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
         if (chainstate->CoinsDB().NeedsUpgrade()) {
-            return {ChainstateLoadStatus::FAILURE_INCOMPATIBLE_DB, _("Unsupported chainstate database format found. "
-                                                                     "Please restart with -reindex-chainstate. This will "
+            // VALIDITY: this is also what a Validity 13.x data folder hits
+            return {ChainstateLoadStatus::FAILURE_INCOMPATIBLE_DB, _("Unsupported chainstate database format found.\n\n"
+                                                                     "If this data folder was used by Validity 13.x, start this version with a new, "
+                                                                     "empty data folder instead and copy a backup of wallet.dat into it.\n\n"
+                                                                     "Otherwise, restart with -reindex-chainstate. This will "
                                                                      "rebuild the chainstate database.")};
         }
 
