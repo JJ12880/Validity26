@@ -3101,13 +3101,12 @@ std::shared_ptr<CWallet> CWallet::Create(WalletContext& context, const std::stri
     std::optional<CAmount> reserve_balance = ParseMoney(gArgs.GetArg("-reservebalance", FormatMoney(DEFAULT_RESERVE_BALANCE)));
     walletInstance->m_reserve_balance = reserve_balance.value_or(DEFAULT_RESERVE_BALANCE);
 
-    unsigned int donation_percentage = args.GetIntArg("-donatetodevfund", DEFAULT_DONATION_PERCENTAGE);
-    if (donation_percentage <= 0) {
-        donation_percentage = MIN_DONATION_PERCENTAGE;
+    // VALIDITY-PORT: the staker never paid -donatetodevfund (Validity's dev fund is a consensus rule),
+    // so don't report a donation that isn't made.
+    if (args.GetIntArg("-donatetodevfund", 0) > 0) {
+        walletInstance->WalletLogPrintf("Warning: -donatetodevfund is ignored; Validity's dev fund is paid by consensus\n");
     }
-    donation_percentage = std::max(donation_percentage, MIN_DONATION_PERCENTAGE);
-    donation_percentage = std::min(donation_percentage, MAX_DONATION_PERCENTAGE);
-    walletInstance->m_donation_percentage = donation_percentage;
+    walletInstance->m_donation_percentage = 0;
 
     walletInstance->WalletLogPrintf("Wallet completed loading in %15dms\n", Ticks<std::chrono::milliseconds>(SteadyClock::now() - start));
 
