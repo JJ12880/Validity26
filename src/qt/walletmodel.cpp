@@ -397,7 +397,12 @@ bool WalletModel::setWalletLocked(bool locked, const SecureString &passPhrase)
     if(locked)
     {
         // Lock
-        return m_wallet->lock();
+        // VALIDITY: a locked wallet is no longer "unlocked for staking only". The flag used to
+        // survive locking, and the next send's passphrase prompt then left the wallet unlocked
+        // (staking only) instead of relocking it after the send.
+        const bool ok{m_wallet->lock()};
+        if (ok) setWalletUnlockStakingOnly(false);
+        return ok;
     }
     else
     {
@@ -503,11 +508,15 @@ WalletModel::UnlockContext WalletModel::requestUnlock()
 {
     bool was_locked = getEncryptionStatus() == Locked;
 
-    if ((!was_locked) && getWalletUnlockStakingOnly())
+    // VALIDITY: unlocked for staking only: lock so the passphrase is asked for, and go back to
+    // staking-only (not locked) after the send. setWalletLocked() clears the flag, so put it back
+    // for the prompt, which carries it over to the unlocked state.
+    const bool was_staking_only{!was_locked && getWalletUnlockStakingOnly()};
+    if (was_staking_only)
     {
         setWalletLocked(true);
         was_locked = getEncryptionStatus() == Locked;
-
+        setWalletUnlockStakingOnly(was_staking_only);
     }
 
     if(was_locked)
@@ -517,6 +526,14 @@ WalletModel::UnlockContext WalletModel::requestUnlock()
     }
     // If wallet is still locked, unlock was failed or cancelled, mark context as invalid
     bool valid = getEncryptionStatus() != Locked;
+    if (!valid && was_staking_only) {
+        // VALIDITY: we locked it to ask for the passphrase and the user backed out, so staking stopped
+        setWalletUnlockStakingOnly(false);
+        Q_EMIT message(tr("Staking stopped"),
+                       tr("The wallet was locked to ask for your passphrase, so staking has stopped. "
+                          "Unlock it for staking again on the Staking page."),
+                       CClientUIInterface::MSG_WARNING);
+    }
 
     return UnlockContext(this, valid, was_locked && !getWalletUnlockStakingOnly());
 }

@@ -86,6 +86,8 @@ AskPassphraseDialog::~AskPassphraseDialog()
 void AskPassphraseDialog::setModel(WalletModel *_model)
 {
     this->model = _model;
+    // VALIDITY: in plain Unlock mode the checkbox is hidden and carries the wallet's current
+    // staking-only state (WalletModel::requestUnlock sets it, and locking clears it)
     if(model) ui->stakingCheckBox->setChecked(model->getWalletUnlockStakingOnly() || mode == UnlockStaking);
 }
 
