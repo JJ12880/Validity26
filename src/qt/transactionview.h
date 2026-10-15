@@ -68,6 +68,8 @@ private:
     WalletModel *model{nullptr};
     TransactionFilterProxy *transactionProxyModel{nullptr};
     QTableView *transactionView{nullptr};
+    //! VALIDITY: no saved header layout, so stretch the Label column once the model is set
+    bool m_stretch_label_column{false};
 
     QComboBox *dateWidget;
     QComboBox *typeWidget;

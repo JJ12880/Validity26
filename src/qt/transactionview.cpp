@@ -161,10 +161,11 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
         transactionView->setColumnWidth(TransactionTableModel::Type, TYPE_COLUMN_WIDTH);
         transactionView->setColumnWidth(TransactionTableModel::Amount, AMOUNT_MINIMUM_COLUMN_WIDTH);
         transactionView->horizontalHeader()->setMinimumSectionSize(MINIMUM_COLUMN_WIDTH);
-        // VALIDITY-PORT: Stretch Label column (index 4) instead of Amount (last column)
-        // This gives Label the most space and keeps Amount at a fixed reasonable width
-        transactionView->horizontalHeader()->setStretchLastSection(false);
-        transactionView->horizontalHeader()->setSectionResizeMode(TransactionTableModel::ToAddress, QHeaderView::Stretch);
+        // VALIDITY-PORT: Stretch the Label column instead of Amount (the last column); applied in
+        // setModel(). The view has no model yet, so its header has no sections, and in a release
+        // build setSectionResizeMode() on a missing section writes out of bounds and corrupts the
+        // heap (beta 2 crashed right after creating or loading the first wallet).
+        m_stretch_label_column = true;
     }
 
     contextMenu = new QMenu(this);
@@ -214,6 +215,10 @@ void TransactionView::setModel(WalletModel *_model)
         transactionProxyModel->setSortRole(Qt::EditRole);
         transactionView->setModel(transactionProxyModel);
         transactionView->sortByColumn(TransactionTableModel::Date, Qt::DescendingOrder);
+        if (m_stretch_label_column) {
+            transactionView->horizontalHeader()->setStretchLastSection(false);
+            transactionView->horizontalHeader()->setSectionResizeMode(TransactionTableModel::ToAddress, QHeaderView::Stretch);
+        }
 
         if (_model->getOptionsModel())
         {
