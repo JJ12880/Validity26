@@ -1163,8 +1163,9 @@ void BitcoinGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
     }
 #endif
 
-    // VALIDITY-PORT: Disable modal overlay during sync (use status bar instead)
-    /*
+    // VALIDITY: keep the sync overlay up to date. It no longer opens by itself during sync
+    // (ModalOverlay::showHide), only when the user clicks the progress bar; with these updates
+    // commented out it showed "Unknown…" for blocks left and last block time forever.
     if (modalOverlay)
     {
         if (synctype != SyncType::BLOCK_SYNC)
@@ -1172,7 +1173,6 @@ void BitcoinGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
         else
             modalOverlay->tipUpdate(count, blockDate, nVerificationProgress);
     }
-    */
     if (!clientModel)
         return;
 
