@@ -508,6 +508,10 @@ WalletModel::UnlockContext WalletModel::requestUnlock()
 {
     bool was_locked = getEncryptionStatus() == Locked;
 
+    // VALIDITY: locked outside the GUI (e.g. the walletlock RPC) keeps a stale staking-only flag;
+    // a locked wallet isn't unlocked for anything, so clear it before asking for the passphrase
+    if (was_locked && getWalletUnlockStakingOnly()) setWalletUnlockStakingOnly(false);
+
     // VALIDITY: unlocked for staking only: lock so the passphrase is asked for, and go back to
     // staking-only (not locked) after the send. setWalletLocked() clears the flag, so put it back
     // for the prompt, which carries it over to the unlocked state.
