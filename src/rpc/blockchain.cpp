@@ -101,8 +101,12 @@ double GetPoSKernelPS(ChainstateManager& chainman)
     double dStakeKernelsTriedAvg = 0;
     int nStakesHandled = 0, nStakesTime = 0;
 
-    CBlockIndex* pindex = chainman.m_best_header;
-    CBlockIndex* pindexPrevStake = nullptr;
+    // VALIDITY: walk back from the active chain tip, as 13.x did (chainActive.Tip()), under cs_main.
+    // The port started at m_best_header without the lock; during initial sync that is the header
+    // tip, up to millions of entries ahead, and the GUI calls this every second.
+    LOCK(cs_main);
+    const CBlockIndex* pindex = chainman.ActiveChain().Tip();
+    const CBlockIndex* pindexPrevStake = nullptr;
 
     while (pindex && nStakesHandled < nPoSInterval)
     {

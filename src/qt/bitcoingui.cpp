@@ -1625,7 +1625,9 @@ void BitcoinGUI::updateStakingIcon()
         uint64_t nNetworkWeight = 1.1429 * walletModel->node().getPoSKernelPS();
         const Consensus::Params& consensusParams = Params().GetConsensus();
         int64_t nTargetSpacing = consensusParams.nTargetSpacing;
-        unsigned nEstimateTime = 1.0455 * nTargetSpacing * nNetworkWeight / nWeight;
+        // VALIDITY: compute in double and clamp; with a tiny weight the old unsigned result overflowed
+        const double estimate{1.0455 * nTargetSpacing * (double)nNetworkWeight / (double)nWeight};
+        const uint64_t nEstimateTime{static_cast<uint64_t>(std::min(estimate, 3650.0 * 24 * 60 * 60))};
 
         QString text;
         if (nEstimateTime < 60)
