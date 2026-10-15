@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <limits>
 #include <map>
@@ -38,6 +39,7 @@ class Chainstate;
 class ChainstateManager;
 struct CCheckpointData;
 struct FlatFilePos;
+class FlatFileSeq;
 namespace Consensus {
 struct Params;
 }
@@ -167,6 +169,23 @@ private:
     bool WriteBlockToDisk(const CBlock& block, FlatFilePos& pos) const;
     bool UndoWriteToDisk(const CBlockUndo& blockundo, FlatFilePos& pos, const uint256& hashBlock) const;
 
+    // VALIDITY: The blk/rev file currently being appended to is kept open between writes.
+    // Opening and closing it for every block made real-time antivirus (Windows Defender)
+    // rescan the whole file each time, which cost ~6 ms per block and made a full sync
+    // several times slower. Each write is still fflush()ed to the OS straight away, so
+    // what reaches the OS (and when) is unchanged; fsync still happens only in Flush.
+    struct AppendFile {
+        int file_num{-1};
+        std::FILE* file{nullptr};
+    };
+    mutable Mutex m_append_files_mutex;
+    mutable AppendFile m_block_append GUARDED_BY(m_append_files_mutex);
+    mutable AppendFile m_undo_append GUARDED_BY(m_append_files_mutex);
+    std::FILE* GetAppendFile(AppendFile& append, FlatFileSeq seq, int file_num) const EXCLUSIVE_LOCKS_REQUIRED(m_append_files_mutex);
+    static void CloseAppendFile(AppendFile& append);
+    /** Close any kept-open append handle on block/undo file `file_num` (-1 = all). */
+    void CloseAppendFiles(int file_num) const EXCLUSIVE_LOCKS_REQUIRED(!m_append_files_mutex);
+
     RecursiveMutex cs_LastBlockFile;
     std::vector<CBlockFileInfo> m_blockfile_info;
 
@@ -229,6 +248,7 @@ public:
         : m_prune_mode{opts.prune_target > 0},
           m_opts{std::move(opts)},
           m_interrupt{interrupt} {};
+    ~BlockManager() { CloseAppendFiles(-1); }
 
     const util::SignalInterrupt& m_interrupt;
     std::atomic<bool> m_importing{false};

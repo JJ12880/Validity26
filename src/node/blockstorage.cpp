@@ -491,13 +491,63 @@ CBlockFileInfo* BlockManager::GetBlockFileInfo(size_t n)
     return &m_blockfile_info.at(n);
 }
 
+namespace {
+/** Lends a kept-open append handle to a CAutoFile for one write. The handle is
+ *  fflush()ed and handed back on success; on any failure (including a serialization
+ *  exception) it is closed, and the next write reopens the file. */
+class BorrowedAppendFile
+{
+    std::FILE*& m_slot;
+    CAutoFile m_file;
+    bool m_ok{false};
+
+public:
+    explicit BorrowedAppendFile(std::FILE*& slot) : m_slot{slot}, m_file{slot} {}
+    CAutoFile& operator*() { return m_file; }
+    [[nodiscard]] bool Done() { return m_ok = std::fflush(m_file.Get()) == 0; }
+    ~BorrowedAppendFile()
+    {
+        std::FILE* f{m_file.release()};
+        if (!m_ok && f) {
+            std::fclose(f);
+            m_slot = nullptr;
+        }
+    }
+};
+} // namespace
+
+void BlockManager::CloseAppendFile(AppendFile& append)
+{
+    if (append.file) std::fclose(append.file);
+    append = AppendFile{};
+}
+
+void BlockManager::CloseAppendFiles(int file_num) const
+{
+    LOCK(m_append_files_mutex);
+    if (file_num < 0 || m_block_append.file_num == file_num) CloseAppendFile(m_block_append);
+    if (file_num < 0 || m_undo_append.file_num == file_num) CloseAppendFile(m_undo_append);
+}
+
+std::FILE* BlockManager::GetAppendFile(AppendFile& append, FlatFileSeq seq, int file_num) const
+{
+    if (append.file && append.file_num == file_num) return append.file;
+    CloseAppendFile(append);
+    append.file = seq.Open(FlatFilePos(file_num, 0));
+    if (append.file) append.file_num = file_num;
+    return append.file;
+}
+
 bool BlockManager::UndoWriteToDisk(const CBlockUndo& blockundo, FlatFilePos& pos, const uint256& hashBlock) const
 {
-    // Open history file to append
-    CAutoFile fileout{OpenUndoFile(pos)};
-    if (fileout.IsNull()) {
+    LOCK(m_append_files_mutex);
+    // Open history file to append (kept open between blocks, see AppendFile)
+    if (!GetAppendFile(m_undo_append, UndoFileSeq(), pos.nFile) || std::fseek(m_undo_append.file, pos.nPos, SEEK_SET) != 0) {
+        CloseAppendFile(m_undo_append);
         return error("%s: OpenUndoFile failed", __func__);
     }
+    BorrowedAppendFile borrowed{m_undo_append.file};
+    CAutoFile& fileout{*borrowed};
 
     // Write index header
     unsigned int nSize = GetSerializeSize(blockundo);
@@ -517,6 +567,9 @@ bool BlockManager::UndoWriteToDisk(const CBlockUndo& blockundo, FlatFilePos& pos
     hasher << blockundo;
     fileout << hasher.GetHash();
 
+    if (!borrowed.Done()) {
+        return error("%s: fflush failed", __func__);
+    }
     return true;
 }
 
@@ -556,6 +609,11 @@ bool BlockManager::UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex& in
 bool BlockManager::FlushUndoFile(int block_file, bool finalize)
 {
     FlatFilePos undo_pos_old(block_file, m_blockfile_info[block_file].nUndoSize);
+    // Flush/truncate through a fresh handle; the next append reopens the file.
+    {
+        LOCK(m_append_files_mutex);
+        if (m_undo_append.file_num == block_file) CloseAppendFile(m_undo_append);
+    }
     if (!UndoFileSeq().Flush(undo_pos_old, finalize)) {
         m_opts.notifications.flushError("Flushing undo file to disk failed. This is likely the result of an I/O error.");
         return false;
@@ -578,6 +636,11 @@ bool BlockManager::FlushBlockFile(int blockfile_num, bool fFinalize, bool finali
     assert(static_cast<int>(m_blockfile_info.size()) > blockfile_num);
 
     FlatFilePos block_pos_old(blockfile_num, m_blockfile_info[blockfile_num].nSize);
+    // Flush/truncate through a fresh handle; the next append reopens the file.
+    {
+        LOCK(m_append_files_mutex);
+        if (m_block_append.file_num == blockfile_num) CloseAppendFile(m_block_append);
+    }
     if (!BlockFileSeq().Flush(block_pos_old, fFinalize)) {
         m_opts.notifications.flushError("Flushing block file to disk failed. This is likely the result of an I/O error.");
         success = false;
@@ -763,11 +826,14 @@ bool BlockManager::FindUndoPos(BlockValidationState& state, int nFile, FlatFileP
 
 bool BlockManager::WriteBlockToDisk(const CBlock& block, FlatFilePos& pos) const
 {
-    // Open history file to append
-    CAutoFile fileout{OpenBlockFile(pos)};
-    if (fileout.IsNull()) {
+    LOCK(m_append_files_mutex);
+    // Open history file to append (kept open between blocks, see AppendFile)
+    if (!GetAppendFile(m_block_append, BlockFileSeq(), pos.nFile) || std::fseek(m_block_append.file, pos.nPos, SEEK_SET) != 0) {
+        CloseAppendFile(m_block_append);
         return error("WriteBlockToDisk: OpenBlockFile failed");
     }
+    BorrowedAppendFile borrowed{m_block_append.file};
+    CAutoFile& fileout{*borrowed};
 
     // Write index header
     unsigned int nSize = GetSerializeSize(TX_WITH_WITNESS(block));
@@ -781,6 +847,9 @@ bool BlockManager::WriteBlockToDisk(const CBlock& block, FlatFilePos& pos) const
     pos.nPos = (unsigned int)fileOutPos;
     fileout << TX_WITH_WITNESS(block);
 
+    if (!borrowed.Done()) {
+        return error("WriteBlockToDisk: fflush failed");
+    }
     return true;
 }
 
