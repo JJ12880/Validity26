@@ -520,6 +520,92 @@ public:
     {
         return m_wallet->SetStakeTag(hex, error);
     }
+    bool addMultisigAddress(int required, const std::vector<std::string>& keys, const std::string& label,
+        std::string& address, std::vector<std::string>& pubkeys_out, bilingual_str& error) override
+    {
+        LegacyScriptPubKeyMan* spk_man = m_wallet->GetLegacyScriptPubKeyMan();
+        if (!spk_man) {
+            error = _("Multisig addresses can only be added to legacy wallets.");
+            return false;
+        }
+        LOCK2(m_wallet->cs_wallet, spk_man->cs_KeyStore);
+
+        std::vector<CPubKey> pubkeys;
+        for (const std::string& key : keys) {
+            CPubKey pubkey;
+            if (IsHex(key) && (key.size() == 66 || key.size() == 130)) {
+                const std::vector<unsigned char> data = ParseHex(key);
+                pubkey.Set(data.begin(), data.end());
+            } else {
+                const CTxDestination dest = DecodeDestination(key);
+                const PKHash* pkh = std::get_if<PKHash>(&dest);
+                if (!pkh) {
+                    error = strprintf(_("%s is not a public key or a P2PKH address."), key);
+                    return false;
+                }
+                if (!spk_man->GetPubKey(ToKeyID(*pkh), pubkey)) {
+                    error = strprintf(_("%s is not an address of this wallet, so its public key is unknown. Enter the public key instead."), key);
+                    return false;
+                }
+            }
+            if (!pubkey.IsFullyValid()) {
+                error = strprintf(_("%s is not a valid public key."), key);
+                return false;
+            }
+            if (std::find(pubkeys.begin(), pubkeys.end(), pubkey) != pubkeys.end()) {
+                error = strprintf(_("%s is listed twice."), key);
+                return false;
+            }
+            pubkeys.push_back(pubkey);
+        }
+        // 15 keys is the most a standard P2SH spend allows (MAX_P2SH_SIGOPS, and the 520-byte redeem script limit).
+        if (pubkeys.size() < 2 || pubkeys.size() > 15) {
+            error = _("A multisig address needs between 2 and 15 keys.");
+            return false;
+        }
+        if (required < 1 || required > int(pubkeys.size())) {
+            error = strprintf(_("Required signatures must be between 1 and %u."), pubkeys.size());
+            return false;
+        }
+        const CScript redeem_script = GetScriptForMultisig(required, pubkeys);
+        if (redeem_script.size() > MAX_SCRIPT_ELEMENT_SIZE) {
+            error = strprintf(_("The redeem script is %u bytes; the limit is %u. Use compressed public keys or fewer keys."), redeem_script.size(), MAX_SCRIPT_ELEMENT_SIZE);
+            return false;
+        }
+        // Legacy P2SH only: Validity has no segwit.
+        const CTxDestination dest = ScriptHash(redeem_script);
+        const CScript script_pub_key = GetScriptForDestination(dest);
+        if (!spk_man->AddCScript(redeem_script)) {
+            error = _("Failed to store the redeem script.");
+            return false;
+        }
+        // Watch it so the balance shows even when this wallet holds only some of the keys.
+        if (!spk_man->HaveWatchOnly(script_pub_key) && !spk_man->AddWatchOnly(script_pub_key, GetTime())) {
+            error = _("Failed to watch the multisig address.");
+            return false;
+        }
+        m_wallet->SetAddressBook(dest, label, AddressPurpose::SEND);
+
+        address = EncodeDestination(dest);
+        pubkeys_out.clear();
+        for (const CPubKey& pubkey : pubkeys) pubkeys_out.push_back(HexStr(pubkey));
+        return true;
+    }
+    std::vector<std::pair<COutPoint, CAmount>> listCoinsTo(const CTxDestination& dest) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        const CScript script = GetScriptForDestination(dest);
+        CCoinControl coin_control;
+        coin_control.fAllowWatchOnly = true;
+        CoinFilterParams params;
+        params.only_spendable = false;
+        params.skip_locked = false;
+        std::vector<std::pair<COutPoint, CAmount>> result;
+        for (const COutput& coin : AvailableCoins(*m_wallet, &coin_control, /*feerate=*/std::nullopt, params).All()) {
+            if (coin.txout.scriptPubKey == script) result.emplace_back(coin.outpoint, coin.txout.nValue);
+        }
+        return result;
+    }
     bool tryGetStakeWeight(uint64_t& nWeight) override
     {
         TRY_LOCK(m_wallet->cs_wallet, locked_wallet);

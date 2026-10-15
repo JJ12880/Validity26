@@ -86,6 +86,9 @@ public Q_SLOTS:
     /** Load Partially Signed Bitcoin Transaction */
     void gotoLoadPSBT(bool from_clipboard = false);
 
+    /** Create or spend from a multisig address */
+    void gotoMultisig();
+
     /** Encrypt the wallet */
     void encryptWallet();
     /** Backup the wallet */

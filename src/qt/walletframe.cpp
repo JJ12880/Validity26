@@ -7,6 +7,7 @@
 #include <node/interface_ui.h>
 #include <psbt.h>
 #include <qt/guiutil.h>
+#include <qt/multisigdialog.h>
 #include <qt/overviewpage.h>
 #include <qt/psbtoperationsdialog.h>
 #include <qt/walletmodel.h>
@@ -240,6 +241,17 @@ void WalletFrame::gotoLoadPSBT(bool from_clipboard)
     auto dlg = new PSBTOperationsDialog(this, currentWalletModel(), clientModel);
     dlg->openWithPSBT(psbtx);
     GUIUtil::ShowModalDialogAsynchronously(dlg);
+}
+
+void WalletFrame::gotoMultisig()
+{
+    WalletModel* wallet_model = currentWalletModel();
+    if (!wallet_model) return;
+    if (!wallet_model->wallet().isLegacy()) {
+        Q_EMIT message(tr("Multisig"), tr("Multisig addresses need a legacy wallet."), CClientUIInterface::MSG_ERROR);
+        return;
+    }
+    GUIUtil::ShowModalDialogAsynchronously(new MultisigDialog(platformStyle, wallet_model, clientModel, this));
 }
 
 void WalletFrame::encryptWallet()

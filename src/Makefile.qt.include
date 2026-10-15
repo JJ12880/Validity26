@@ -67,6 +67,7 @@ QT_MOC_CPP = \
   qt/moc_peertablemodel.cpp \
   qt/moc_peertablesortproxy.cpp \
   qt/moc_paymentserver.cpp \
+  qt/moc_multisigdialog.cpp \
   qt/moc_psbtoperationsdialog.cpp \
   qt/moc_qrimagewidget.cpp \
   qt/moc_qvalidatedlineedit.cpp \
@@ -145,6 +146,7 @@ BITCOIN_QT_H = \
   qt/peertablemodel.h \
   qt/peertablesortproxy.h \
   qt/platformstyle.h \
+  qt/multisigdialog.h \
   qt/psbtoperationsdialog.h \
   qt/qrimagewidget.h \
   qt/qvalidatedlineedit.h \
@@ -271,6 +273,7 @@ BITCOIN_QT_WALLET_CPP = \
   qt/overviewpage.cpp \
   qt/stakingpage.cpp \
   qt/paymentserver.cpp \
+  qt/multisigdialog.cpp \
   qt/psbtoperationsdialog.cpp \
   qt/qrimagewidget.cpp \
   qt/receivecoinsdialog.cpp \
