@@ -96,6 +96,10 @@ static constexpr std::chrono::hours DATABASE_WRITE_INTERVAL{1};
 // coins write: a crash or power loss lost up to a day of sync progress (seen on a test VM:
 // 3.47M blocks). Periodic flushes use Sync(), which keeps the cache, so this costs little.
 static constexpr std::chrono::hours DATABASE_FLUSH_INTERVAL{1};
+/** VALIDITY: during initial block download, write blocks, index and coins every 10 minutes, so
+ *  a crash or power loss costs at most ~10 minutes of sync and the final flush at shutdown
+ *  stays small (Windows gives a console process only a few seconds at OS shutdown). */
+static constexpr std::chrono::minutes DATABASE_FLUSH_INTERVAL_IBD{10};
 const std::vector<std::string> CHECKLEVEL_DOC {
     "level 0 reads the blocks from disk",
     "level 1 verifies block validity",
@@ -2782,7 +2786,11 @@ bool Chainstate::FlushStateToDisk(
         // It's been a while since we wrote the block index to disk. Do this frequently, so we don't need to redownload after a crash.
         bool fPeriodicWrite = mode == FlushStateMode::PERIODIC && nNow > m_last_write + DATABASE_WRITE_INTERVAL;
         // It's been very long since we flushed the cache. Do this infrequently, to optimize cache usage.
-        bool fPeriodicFlush = mode == FlushStateMode::PERIODIC && nNow > m_last_flush + DATABASE_FLUSH_INTERVAL;
+        // VALIDITY: more often during initial block download (see DATABASE_FLUSH_INTERVAL_IBD).
+        const auto flush_interval{m_chainman.IsInitialBlockDownload() ?
+            std::chrono::duration_cast<SteadyClock::duration>(DATABASE_FLUSH_INTERVAL_IBD) :
+            std::chrono::duration_cast<SteadyClock::duration>(DATABASE_FLUSH_INTERVAL)};
+        bool fPeriodicFlush = mode == FlushStateMode::PERIODIC && nNow > m_last_flush + flush_interval;
         // Combine all conditions that result in a full cache flush.
         fDoFullFlush = (mode == FlushStateMode::ALWAYS) || fCacheLarge || fCacheCritical || fPeriodicFlush;
         // Write blocks and block index to disk.
