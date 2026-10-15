@@ -269,6 +269,14 @@ public:
     //! Set the stake tag from hex (empty clears it); takes effect for the next stake
     virtual bool setStakeTag(const std::string& hex, bilingual_str& error) = 0;
 
+    //! Add a P2SH m-of-n multisig address (legacy wallets only) and watch it. Each key is a hex
+    //! public key or a P2PKH address of this wallet. Returns the address and the public keys used.
+    virtual bool addMultisigAddress(int required, const std::vector<std::string>& keys, const std::string& label,
+        std::string& address, std::vector<std::string>& pubkeys, bilingual_str& error) = 0;
+
+    //! Unspent outputs paying to dest, including watch-only ones.
+    virtual std::vector<std::pair<COutPoint, CAmount>> listCoinsTo(const CTxDestination& dest) = 0;
+
     //! Try get the stake weight
     virtual bool tryGetStakeWeight(uint64_t& nWeight) = 0;
 

@@ -149,6 +149,7 @@ private:
     QAction* verifyMessageAction = nullptr;
     QAction* m_load_psbt_action = nullptr;
     QAction* m_load_psbt_clipboard_action = nullptr;
+    QAction* m_multisig_action = nullptr;
     QAction* aboutAction = nullptr;
     QAction* receiveCoinsAction = nullptr;
     QAction* optionsAction = nullptr;
@@ -302,6 +303,8 @@ public Q_SLOTS:
     void gotoVerifyMessageTab(QString addr = "");
     /** Load Partially Signed Bitcoin Transaction from file or clipboard */
     void gotoLoadPSBT(bool from_clipboard = false);
+    /** Create or spend from a multisig address */
+    void gotoMultisig();
     /** Enable history action when privacy is changed */
     void enableHistoryAction(bool privacy);
 

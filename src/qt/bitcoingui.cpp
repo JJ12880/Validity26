@@ -348,6 +348,8 @@ void BitcoinGUI::createActions()
     m_load_psbt_action->setStatusTip(tr("Load Partially Signed Validity Transaction"));
     m_load_psbt_clipboard_action = new QAction(tr("Load PSBT from &clipboard…"), this);
     m_load_psbt_clipboard_action->setStatusTip(tr("Load Partially Signed Validity Transaction from clipboard"));
+    m_multisig_action = new QAction(tr("&Multisig…"), this);
+    m_multisig_action->setStatusTip(tr("Create a multisig address, or spend from one with a PSBT"));
 
     openRPCConsoleAction = new QAction(tr("Node window"), this);
     openRPCConsoleAction->setStatusTip(tr("Open node debugging and diagnostic console"));
@@ -418,6 +420,7 @@ void BitcoinGUI::createActions()
         connect(signMessageAction, &QAction::triggered, [this]{ gotoSignMessageTab(); });
         connect(m_load_psbt_action, &QAction::triggered, [this]{ gotoLoadPSBT(); });
         connect(m_load_psbt_clipboard_action, &QAction::triggered, [this]{ gotoLoadPSBT(true); });
+        connect(m_multisig_action, &QAction::triggered, [this]{ gotoMultisig(); });
         connect(verifyMessageAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
         connect(verifyMessageAction, &QAction::triggered, [this]{ gotoVerifyMessageTab(); });
         connect(usedSendingAddressesAction, &QAction::triggered, walletFrame, &WalletFrame::usedSendingAddresses);
@@ -521,6 +524,7 @@ void BitcoinGUI::createMenuBar()
         file->addAction(verifyMessageAction);
         file->addAction(m_load_psbt_action);
         file->addAction(m_load_psbt_clipboard_action);
+        file->addAction(m_multisig_action);
         file->addSeparator();
     }
     file->addAction(quitAction);
@@ -1022,6 +1026,10 @@ void BitcoinGUI::gotoVerifyMessageTab(QString addr)
 void BitcoinGUI::gotoLoadPSBT(bool from_clipboard)
 {
     if (walletFrame) walletFrame->gotoLoadPSBT(from_clipboard);
+}
+void BitcoinGUI::gotoMultisig()
+{
+    if (walletFrame) walletFrame->gotoMultisig();
 }
 #endif // ENABLE_WALLET
 
