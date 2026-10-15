@@ -62,13 +62,14 @@ uint64_t GetStakeWeight(const CWallet& wallet)
     if (wallet.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS))
         nBalance += bal.m_watchonly_trusted;
 
-    if (nBalance <= wallet.m_reserve_balance)
+    const CAmount reserve{wallet.m_reserve_balance}; // VALIDITY: read once (may change concurrently)
+    if (nBalance <= reserve)
         return 0;
 
     std::set<std::pair<const CWalletTx*, unsigned int> > setCoins;
     CAmount nValueIn = 0;
 
-    CAmount nTargetValue = nBalance - wallet.m_reserve_balance;
+    CAmount nTargetValue = nBalance - reserve;
     if (!SelectCoinsForStaking(wallet, nTargetValue, setCoins, nValueIn))
         return 0;
 
@@ -274,13 +275,14 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
     if (fAllowWatchOnly)
         nBalance += bal.m_watchonly_trusted;
 
-    if (nBalance <= wallet.m_reserve_balance)
+    const CAmount reserve{wallet.m_reserve_balance}; // VALIDITY: read once (may change concurrently)
+    if (nBalance <= reserve)
         return false;
 
     std::set<std::pair<const CWalletTx*, unsigned int> > setCoins;
     std::vector<CTransactionRef> vwtxPrev;
     CAmount nValueIn = 0;
-    CAmount nAllowedBalance = nBalance - wallet.m_reserve_balance;
+    CAmount nAllowedBalance = nBalance - reserve;
 
     // Select coins with suitable depth
     if (!SelectCoinsForStaking(wallet, nAllowedBalance, setCoins, nValueIn))
@@ -436,7 +438,7 @@ bool CreateCoinStake(CWallet& wallet, unsigned int nBits, int64_t nSearchInterva
             if (nCredit >= GetStakeCombineThreshold())
                 break;
             // Stop adding inputs if reached reserve limit
-            if (nCredit + pcoin.first->tx->vout[pcoin.second].nValue > nBalance - wallet.m_reserve_balance)
+            if (nCredit + pcoin.first->tx->vout[pcoin.second].nValue > nBalance - reserve)
                 break;
             // Do not add additional significant input
             if (pcoin.first->tx->vout[pcoin.second].nValue >= GetStakeCombineThreshold())

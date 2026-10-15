@@ -720,7 +720,8 @@ public:
     std::atomic<bool> m_wallet_unlock_staking_only{false};
     int64_t m_last_coin_stake_search_interval{0};
     CAmount m_min_staking_amount{DEFAULT_MIN_STAKING_AMOUNT};
-    CAmount m_reserve_balance{DEFAULT_RESERVE_BALANCE};
+    //! VALIDITY: atomic, set by the GUI and the reservebalance RPC while the staker reads it
+    std::atomic<CAmount> m_reserve_balance{DEFAULT_RESERVE_BALANCE};
     unsigned int m_donation_percentage{DEFAULT_DONATION_PERCENTAGE};
     std::atomic<bool> m_enabled_staking{false};
     std::atomic<bool> m_stop_staking_thread{false};

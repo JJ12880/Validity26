@@ -203,8 +203,9 @@ static RPCHelpMan reservebalance()
     }
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("reserve", (pwallet->m_reserve_balance > 0));
-    result.pushKV("amount", ValueFromAmount(pwallet->m_reserve_balance));
+    const CAmount reserve{pwallet->m_reserve_balance};
+    result.pushKV("reserve", (reserve > 0));
+    result.pushKV("amount", ValueFromAmount(reserve));
     return result;
 },
     };
