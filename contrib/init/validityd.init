@@ -18,7 +18,7 @@ fi
 
 RETVAL=0
 
-prog=bitcoind
+prog=validityd
 # you can override the lockfile via BITCOIND_LOCKFILE in /etc/sysconfig/validityd
 lockfile=${BITCOIND_LOCKFILE-/var/lock/subsys/validityd}
 

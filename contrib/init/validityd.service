@@ -11,7 +11,7 @@
 
 [Unit]
 Description=Validity daemon
-Documentation=https://github.com/CoinBlack/validity-more/blob/master/doc/init.md
+Documentation=https://github.com/RadiumCore/Validity/blob/main/doc/init.md
 
 # https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/
 After=network-online.target

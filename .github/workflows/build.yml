@@ -166,14 +166,14 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: blackmore-${{ github.sha }}-${{ matrix.name }}
+          name: validity-${{ github.sha }}-${{ matrix.name }}
           path: |
-            depends/${{ matrix.host }}/bin/blackmore*
-            dist/Blackmore-Qt.app
+            depends/${{ matrix.host }}/bin/validity*
+            dist/Validity-Qt.app
           if-no-files-found: error
           retention-days: 7
 
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          name: blackmore-${{ github.sha }}-${{ matrix.name }}
+          name: validity-${{ github.sha }}-${{ matrix.name }}

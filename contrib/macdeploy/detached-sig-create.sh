@@ -7,8 +7,8 @@ export LC_ALL=C
 set -e
 
 ROOTDIR=dist
-BUNDLE="${ROOTDIR}/Blackmore-Qt.app"
-BINARY="${BUNDLE}/Contents/MacOS/Blackmore-Qt"
+BUNDLE="${ROOTDIR}/Validity-Qt.app"
+BINARY="${BUNDLE}/Contents/MacOS/Validity-Qt"
 SIGNAPPLE=signapple
 TEMPDIR=sign.temp
 ARCH=$(${SIGNAPPLE} info ${BINARY} | head -n 1 | cut -d " " -f 1)
