@@ -99,6 +99,11 @@ void WalletInit::AddWalletOptions(ArgsManager& argsman) const
     // VALIDITY-PORT: Blackcoin's voluntary donation. Validity pays its dev fund by consensus, so this is ignored;
     // still registered so existing config files that set it keep loading.
     argsman.AddArg("-donatetodevfund=<n>", "Ignored (Blackcoin option; Validity's dev fund is paid by consensus)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::WALLET_DEBUG_TEST);
+    argsman.AddArg("-stakedonationaddress=<addr>", "Pay a share of each stake reward to this address (P2PKH or P2SH; it need not belong to this wallet). Requires -stakedonationpercent", ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
+    argsman.AddArg("-stakedonationpercent=<n>", strprintf("Percentage of each stake reward paid to -stakedonationaddress (%u to %u, default: %u). Skipped on dev fund blocks",
+        wallet::MIN_DONATION_PERCENTAGE, wallet::MAX_DONATION_PERCENTAGE, wallet::DEFAULT_DONATION_PERCENTAGE), ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
+    argsman.AddArg("-staketag=<hex>", strprintf("Publish up to %u bytes of data with each stake, after the block-signing pubkey in the coinstake's OP_RETURN output. Skipped on dev fund blocks",
+        wallet::MAX_STAKE_TAG_BYTES), ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
 
     argsman.AddArg("-walletrejectlongchains", strprintf("Wallet will not create transactions that violate mempool chain limits (default: %u)", DEFAULT_WALLET_REJECT_LONG_CHAINS), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::WALLET_DEBUG_TEST);
     argsman.AddArg("-walletcrosschain", strprintf("Allow reusing wallet files across chains (default: %u)", DEFAULT_WALLETCROSSCHAIN), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::WALLET_DEBUG_TEST);

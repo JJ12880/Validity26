@@ -2437,6 +2437,54 @@ bool CWallet::DelAddressBook(const CTxDestination& address)
     return batch.EraseName(EncodeDestination(address));
 }
 
+bool CWallet::SetStakeDonation(unsigned int percent, const std::string& address, bilingual_str& error)
+{
+    LOCK(cs_wallet);
+    if (percent == 0) {
+        m_donation_percentage = 0;
+        m_donation_destination = CNoDestination();
+        WalletLogPrintf("Stake donation disabled\n");
+        return true;
+    }
+    if (percent > MAX_DONATION_PERCENTAGE) {
+        error = strprintf(_("Stake donation percentage must be between 1 and %u."), MAX_DONATION_PERCENTAGE);
+        return false;
+    }
+    // Only P2PKH/P2SH: Validity has no segwit, so a witness output would be spendable by anyone.
+    const CTxDestination dest = DecodeDestination(address);
+    if (!std::holds_alternative<PKHash>(dest) && !std::holds_alternative<ScriptHash>(dest)) {
+        error = strprintf(_("Stake donation disabled: %s is not a valid P2PKH or P2SH address."), address);
+        WalletLogPrintf("Stake donation disabled: %s is not a valid P2PKH or P2SH address\n", address);
+        return false;
+    }
+    m_donation_destination = dest;
+    m_donation_percentage = percent;
+    WalletLogPrintf("Stake donation: %u%% of each stake reward to %s\n", percent, address);
+    return true;
+}
+
+bool CWallet::SetStakeTag(const std::string& hex, bilingual_str& error)
+{
+    LOCK(cs_wallet);
+    if (hex.empty()) {
+        m_stake_tag.clear();
+        WalletLogPrintf("Stake tag disabled\n");
+        return true;
+    }
+    if (!IsHex(hex)) {
+        error = _("Stake tag must be an even number of hex digits.");
+        return false;
+    }
+    std::vector<unsigned char> tag = ParseHex(hex);
+    if (tag.size() > MAX_STAKE_TAG_BYTES) {
+        error = strprintf(_("Stake tag is %u bytes; the maximum is %u."), tag.size(), MAX_STAKE_TAG_BYTES);
+        return false;
+    }
+    m_stake_tag = std::move(tag);
+    WalletLogPrintf("Stake tag: %s\n", hex);
+    return true;
+}
+
 uint64_t CWallet::GetStakeWeight() const
 {
     if (HaveChain()) {
@@ -3101,12 +3149,34 @@ std::shared_ptr<CWallet> CWallet::Create(WalletContext& context, const std::stri
     std::optional<CAmount> reserve_balance = ParseMoney(gArgs.GetArg("-reservebalance", FormatMoney(DEFAULT_RESERVE_BALANCE)));
     walletInstance->m_reserve_balance = reserve_balance.value_or(DEFAULT_RESERVE_BALANCE);
 
-    // VALIDITY-PORT: the staker never paid -donatetodevfund (Validity's dev fund is a consensus rule),
-    // so don't report a donation that isn't made.
+    // VALIDITY-PORT: Blackcoin's -donatetodevfund was never paid (Validity's dev fund is a consensus rule).
     if (args.GetIntArg("-donatetodevfund", 0) > 0) {
         walletInstance->WalletLogPrintf("Warning: -donatetodevfund is ignored; Validity's dev fund is paid by consensus\n");
     }
-    walletInstance->m_donation_percentage = 0;
+
+    // VALIDITY-PORT: stake donation from -stakedonationpercent / -stakedonationaddress
+    // (validity.conf or the GUI's settings.json). Can be changed later via SetStakeDonation.
+    const int64_t donation_arg = args.GetIntArg("-stakedonationpercent", DEFAULT_DONATION_PERCENTAGE);
+    const unsigned int donation_percentage = std::clamp<int64_t>(donation_arg, MIN_DONATION_PERCENTAGE, MAX_DONATION_PERCENTAGE);
+    const std::string donation_address = args.GetArg("-stakedonationaddress", "");
+    if (donation_percentage > 0 && !donation_address.empty()) {
+        bilingual_str donation_error;
+        if (!walletInstance->SetStakeDonation(donation_percentage, donation_address, donation_error)) {
+            warnings.push_back(donation_error);
+        }
+    } else if (donation_percentage > 0 || !donation_address.empty()) {
+        walletInstance->WalletLogPrintf("Stake donation disabled: both -stakedonationaddress and -stakedonationpercent must be set\n");
+        warnings.push_back(_("Stake donation disabled: both a donation address and a percentage must be set."));
+    }
+
+    // VALIDITY-PORT: stake tag from -staketag (hex). Can be changed later via SetStakeTag.
+    if (args.IsArgSet("-staketag")) {
+        bilingual_str tag_error;
+        if (!walletInstance->SetStakeTag(args.GetArg("-staketag", ""), tag_error)) {
+            walletInstance->WalletLogPrintf("Stake tag disabled: %s\n", tag_error.original);
+            warnings.push_back(_("Stake tag disabled: ") + tag_error);
+        }
+    }
 
     walletInstance->WalletLogPrintf("Wallet completed loading in %15dms\n", Ticks<std::chrono::milliseconds>(SteadyClock::now() - start));
 

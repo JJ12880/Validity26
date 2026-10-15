@@ -43,6 +43,12 @@ static RPCHelpMan getstakinginfo()
                         {RPCResult::Type::NUM, "weight", "The staker weight"},
                         {RPCResult::Type::NUM, "netstakeweight", "Network stake weight"},
                         {RPCResult::Type::NUM, "expectedtime", "Expected time to earn reward"},
+                        {RPCResult::Type::OBJ, "stakedonation", "Share of each stake reward paid to another address (-stakedonationaddress / -stakedonationpercent)",
+                        {
+                            {RPCResult::Type::NUM, "percent", "Percentage of each stake reward donated; 0 when disabled"},
+                            {RPCResult::Type::STR, "address", /*optional=*/true, "Address receiving the donation (only when enabled)"},
+                        }},
+                        {RPCResult::Type::STR_HEX, "staketag", "Data published with each stake (-staketag); empty when disabled"},
                     }
                 },
                 RPCExamples{
@@ -56,12 +62,19 @@ static RPCHelpMan getstakinginfo()
 
     uint64_t nWeight = 0;
     uint64_t lastCoinStakeSearchInterval = 0;
+    UniValue donation(UniValue::VOBJ);
+    std::vector<unsigned char> stake_tag;
 
     if (pwallet)
     {
         LOCK(pwallet->cs_wallet);
         nWeight = pwallet->GetStakeWeight();
         lastCoinStakeSearchInterval = pwallet->m_enabled_staking ? pwallet->m_last_coin_stake_search_interval : 0;
+        // Read under the same cs_wallet hold: cs_wallet must never be taken while cs_main is held
+        // (the GUI locks cs_wallet then cs_main, see WalletImpl::tryGetTxStatus).
+        donation.pushKV("percent", (uint64_t)pwallet->m_donation_percentage);
+        if (pwallet->m_donation_percentage > 0) donation.pushKV("address", EncodeDestination(pwallet->m_donation_destination));
+        stake_tag = pwallet->m_stake_tag;
     }
 
     const CTxMemPool& mempool = pwallet->chain().mempool();
@@ -92,6 +105,9 @@ static RPCHelpMan getstakinginfo()
     obj.pushKV("weight", (uint64_t)nWeight);
     obj.pushKV("netstakeweight", (uint64_t)nNetworkWeight);
     obj.pushKV("expectedtime", nExpectedTime);
+
+    obj.pushKV("stakedonation", donation);
+    obj.pushKV("staketag", HexStr(stake_tag));
 
     obj.pushKV("chain", chainman.GetParams().GetChainTypeString());
     obj.pushKV("warnings", GetWarnings(false).original);
