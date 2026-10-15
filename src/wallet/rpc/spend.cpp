@@ -96,8 +96,19 @@ UniValue SendMoneyToScript(CWallet& wallet, const CScript scriptPubKey, CAmount 
     return tx->GetHash().GetHex();
 }
 
+// VALIDITY-PORT: send and sendall sign via FinishTransaction without EnsureWalletIsUnlocked,
+// so they must refuse a staking-only unlock (keys decrypted for the staker). Called first,
+// before funding can lock coins. A fully locked wallet is allowed: it cannot sign anyway.
+static void EnsureNotUnlockedForStakingOnly(const CWallet& wallet)
+{
+    if (!wallet.IsLocked() && wallet.m_wallet_unlock_staking_only)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Wallet unlocked for staking only, unable to create transaction");
+}
+
 static UniValue FinishTransaction(const std::shared_ptr<CWallet> pwallet, const UniValue& options, const CMutableTransaction& rawTx)
 {
+    EnsureNotUnlockedForStakingOnly(*pwallet); // again: the unlock state may have changed since the caller checked
+
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
 
@@ -1252,6 +1263,7 @@ RPCHelpMan send()
         {
             std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
             if (!pwallet) return UniValue::VNULL;
+            EnsureNotUnlockedForStakingOnly(*pwallet);
 
             UniValue options{request.params[4].isNull() ? UniValue::VOBJ : request.params[4]};
             PreventOutdatedOptions(options);
@@ -1348,6 +1360,7 @@ RPCHelpMan sendall()
         {
             std::shared_ptr<CWallet> const pwallet{GetWalletForJSONRPCRequest(request)};
             if (!pwallet) return UniValue::VNULL;
+            EnsureNotUnlockedForStakingOnly(*pwallet);
             // Make sure the results are valid at least up to the most recent block
             // the user could have gotten from another RPC command prior to now
             pwallet->BlockUntilSyncedToCurrentChain();
