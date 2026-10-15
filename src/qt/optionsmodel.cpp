@@ -360,7 +360,11 @@ QVariant OptionsModel::getOption(OptionID option, const std::string& suffix) con
 
 #ifdef ENABLE_WALLET
     case ReserveBalance:
-        return QString::fromStdString(SettingToString(setting(), FormatMoney(wallet::DEFAULT_RESERVE_BALANCE)));
+        // VALIDITY: stored as a coin amount string (what -reservebalance takes), but handed to the
+        // GUI in satoshis, which is what BitcoinAmountField's value property uses. Returning the
+        // string made the Options dialog save satoshis as coins (10 VAL -> 1,000,000,000 VAL),
+        // which silently stopped staking after a restart.
+        return qlonglong(ParseMoney(SettingToString(setting(), FormatMoney(wallet::DEFAULT_RESERVE_BALANCE))).value_or(wallet::DEFAULT_RESERVE_BALANCE));
     case DonationPercentage:
         return qlonglong(SettingToInt(setting(), wallet::DEFAULT_DONATION_PERCENTAGE));
     case SpendZeroConfChange:
@@ -497,8 +501,9 @@ bool OptionsModel::setOption(OptionID option, const QVariant& value, const std::
 
 #ifdef ENABLE_WALLET
     case ReserveBalance:
+        // VALIDITY: value is in satoshis (see getOption); store it as a coin amount string
         if (changed()) {
-            update(value.toString().toStdString());
+            update(FormatMoney(value.toLongLong()));
             setRestartRequired(true);
         }
         break;
@@ -655,8 +660,7 @@ void OptionsModel::checkAndMigrate()
                 setOption(ProxyIPTor, parsed.ip);
                 setOption(ProxyPortTor, parsed.port);
             } else if (option == ReserveBalance) {
-                std::string balance = FormatMoney(value.toLongLong());
-                setOption(ReserveBalance, QString::fromStdString(balance));
+                setOption(ReserveBalance, qlonglong{value.toLongLong()}); // legacy QSettings value is in satoshis
             } else {
                 setOption(option, value);
             }
