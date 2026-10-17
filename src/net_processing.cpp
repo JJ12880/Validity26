@@ -1626,22 +1626,33 @@ void PeerManagerImpl::PushNodeVersion(CNode& pnode, const Peer& peer)
     }
 }
 
-//! VALIDITY: rate limit for the always-on peer rejection logging below. Peers decide how
-//! often those lines fire, so allow at most 20 a minute and report how many were dropped.
-static bool AllowPeerRejectionLog()
+//! VALIDITY: rate limits for the always-on peer rejection logging below. Peers decide how
+//! often those lines fire, so each kind gets its own budget per minute (a flood of junk
+//! headers must not be able to hide discouragement lines) and dropped lines are counted.
+enum class PeerLogKind { REJECTED_HEADER, DISCOURAGED };
+
+static bool AllowPeerRejectionLog(PeerLogKind kind)
 {
-    static std::atomic<int64_t> window_start{0};
-    static std::atomic<int> count{0};
-    static std::atomic<int> suppressed{0};
+    struct Budget {
+        std::atomic<int64_t> window_start{0};
+        std::atomic<int> count{0};
+        std::atomic<int> suppressed{0};
+    };
+    static Budget budgets[2];
+    Budget& b = budgets[kind == PeerLogKind::DISCOURAGED ? 1 : 0];
+    const int limit = kind == PeerLogKind::DISCOURAGED ? 60 : 20;
     const int64_t now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    if (now - window_start.load() >= 60) {
-        window_start = now;
-        count = 0;
-        const int skipped = suppressed.exchange(0);
-        if (skipped > 0) LogPrintf("(%d more rejected-header/discouragement log lines were suppressed)\n", skipped);
+    if (now - b.window_start.load() >= 60) {
+        b.window_start = now;
+        b.count = 0;
+        const int skipped = b.suppressed.exchange(0);
+        if (skipped > 0) {
+            LogPrintf("(%d more %s log lines were suppressed in the last minute)\n", skipped,
+                      kind == PeerLogKind::DISCOURAGED ? "discouraged-peer" : "rejected-header");
+        }
     }
-    if (count.fetch_add(1) < 20) return true;
-    ++suppressed;
+    if (b.count.fetch_add(1) < limit) return true;
+    ++b.suppressed;
     return false;
 }
 
@@ -1702,7 +1713,7 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
         if (state.IsInvalid()) {
             // VALIDITY: always say which header was rejected, why and from whom; without net
             // debugging the old message gave nothing to diagnose peer discouragement with.
-            if (AllowPeerRejectionLog()) {
+            if (AllowPeerRejectionLog(PeerLogKind::REJECTED_HEADER)) {
                 LogPrintf("Rejected block header %s (prev %s) from peer=%d: %s\n", pblock->GetHash().ToString(),
                           pblock->hashPrevBlock.ToString(), pfrom.GetId(), state.ToString());
             }
@@ -1987,7 +1998,7 @@ void PeerManagerImpl::Misbehaving(Peer& peer, int howmuch, const std::string& me
              peer.m_id, score_before, score_now, warning, message_prefixed);
     // VALIDITY: discouraging a peer is rare and changes who we talk to, so always log it.
     // (Its address is in the peer-connected log line when -logips is set.)
-    if (!warning.empty() && AllowPeerRejectionLog()) {
+    if (!warning.empty() && AllowPeerRejectionLog(PeerLogKind::DISCOURAGED)) {
         LogPrintf("Discouraging peer=%d (misbehavior %d -> %d)%s\n", peer.m_id, score_before, score_now, message_prefixed);
     }
 }
@@ -3237,7 +3248,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion < POSMARKER_VERSION, &pindexLast)) {
         if (state.IsInvalid()) {
             // VALIDITY: always log the rejected headers message (first header and count), the reason and the peer.
-            if (AllowPeerRejectionLog()) {
+            if (AllowPeerRejectionLog(PeerLogKind::REJECTED_HEADER)) {
                 LogPrintf("Rejected headers from peer=%d (%u headers, first %s): %s\n", pfrom.GetId(), headers.size(),
                           headers.empty() ? std::string("-") : headers[0].GetHash().ToString(), state.ToString());
             }
