@@ -1681,6 +1681,10 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
     BlockValidationState state;
     if (!ProcessNetBlockHeaders(pfrom, {header_for_accept}, min_pow_checked, state, old_client, &pindex)) {
         if (state.IsInvalid()) {
+            // VALIDITY: always say which header was rejected, why and from whom; without net
+            // debugging the old message gave nothing to diagnose peer discouragement with.
+            LogPrintf("Rejected block header %s (prev %s) from peer=%d: %s\n", pblock->GetHash().ToString(),
+                      pblock->hashPrevBlock.ToString(), pfrom.GetId(), state.ToString());
             MaybePunishNodeForBlock(pfrom.GetId(), state, false, strprintf("Peer %d sent us invalid header\n", pfrom.GetId()));
             return error("%s: invalid header received", __func__);
         }
@@ -1960,6 +1964,11 @@ void PeerManagerImpl::Misbehaving(Peer& peer, int howmuch, const std::string& me
 
     LogPrint(BCLog::NET, "Misbehaving: peer=%d (%d -> %d)%s%s\n",
              peer.m_id, score_before, score_now, warning, message_prefixed);
+    // VALIDITY: discouraging a peer is rare and changes who we talk to, so always log it.
+    // (Its address is in the peer-connected log line when -logips is set.)
+    if (!warning.empty()) {
+        LogPrintf("Discouraging peer=%d (misbehavior %d -> %d)%s\n", peer.m_id, score_before, score_now, message_prefixed);
+    }
 }
 
 bool PeerManagerImpl::MaybePunishNodeForBlock(NodeId nodeid, const BlockValidationState& state,
@@ -3206,6 +3215,9 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     // being set to 0x00 (now pinned to block 5313600's chainwork in chainparams).
     if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion < POSMARKER_VERSION, &pindexLast)) {
         if (state.IsInvalid()) {
+            // VALIDITY: always log the rejected headers message (first header and count), the reason and the peer.
+            LogPrintf("Rejected headers from peer=%d (%u headers, first %s): %s\n", pfrom.GetId(), headers.size(),
+                      headers.empty() ? std::string("-") : headers[0].GetHash().ToString(), state.ToString());
             MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
             return;
         }
