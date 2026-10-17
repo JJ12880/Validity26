@@ -1626,6 +1626,25 @@ void PeerManagerImpl::PushNodeVersion(CNode& pnode, const Peer& peer)
     }
 }
 
+//! VALIDITY: rate limit for the always-on peer rejection logging below. Peers decide how
+//! often those lines fire, so allow at most 20 a minute and report how many were dropped.
+static bool AllowPeerRejectionLog()
+{
+    static std::atomic<int64_t> window_start{0};
+    static std::atomic<int> count{0};
+    static std::atomic<int> suppressed{0};
+    const int64_t now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (now - window_start.load() >= 60) {
+        window_start = now;
+        count = 0;
+        const int skipped = suppressed.exchange(0);
+        if (skipped > 0) LogPrintf("(%d more rejected-header/discouragement log lines were suppressed)\n", skipped);
+    }
+    if (count.fetch_add(1) < 20) return true;
+    ++suppressed;
+    return false;
+}
+
 bool PeerManagerImpl::ProcessNetBlockHeaders(CNode& pfrom, const std::vector<CBlockHeader>& block, bool min_pow_checked, BlockValidationState& state, bool old_client, const CBlockIndex** ppindex)
 {
     const CBlockIndex *pindexFirst = nullptr;
@@ -1683,8 +1702,10 @@ bool PeerManagerImpl::ProcessNetBlock(const std::shared_ptr<const CBlock> pblock
         if (state.IsInvalid()) {
             // VALIDITY: always say which header was rejected, why and from whom; without net
             // debugging the old message gave nothing to diagnose peer discouragement with.
-            LogPrintf("Rejected block header %s (prev %s) from peer=%d: %s\n", pblock->GetHash().ToString(),
-                      pblock->hashPrevBlock.ToString(), pfrom.GetId(), state.ToString());
+            if (AllowPeerRejectionLog()) {
+                LogPrintf("Rejected block header %s (prev %s) from peer=%d: %s\n", pblock->GetHash().ToString(),
+                          pblock->hashPrevBlock.ToString(), pfrom.GetId(), state.ToString());
+            }
             MaybePunishNodeForBlock(pfrom.GetId(), state, false, strprintf("Peer %d sent us invalid header\n", pfrom.GetId()));
             return error("%s: invalid header received", __func__);
         }
@@ -1966,7 +1987,7 @@ void PeerManagerImpl::Misbehaving(Peer& peer, int howmuch, const std::string& me
              peer.m_id, score_before, score_now, warning, message_prefixed);
     // VALIDITY: discouraging a peer is rare and changes who we talk to, so always log it.
     // (Its address is in the peer-connected log line when -logips is set.)
-    if (!warning.empty()) {
+    if (!warning.empty() && AllowPeerRejectionLog()) {
         LogPrintf("Discouraging peer=%d (misbehavior %d -> %d)%s\n", peer.m_id, score_before, score_now, message_prefixed);
     }
 }
@@ -3216,8 +3237,10 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     if (!ProcessNetBlockHeaders(pfrom, headers, /*min_pow_checked=*/true, state, pfrom.nVersion < POSMARKER_VERSION, &pindexLast)) {
         if (state.IsInvalid()) {
             // VALIDITY: always log the rejected headers message (first header and count), the reason and the peer.
-            LogPrintf("Rejected headers from peer=%d (%u headers, first %s): %s\n", pfrom.GetId(), headers.size(),
-                      headers.empty() ? std::string("-") : headers[0].GetHash().ToString(), state.ToString());
+            if (AllowPeerRejectionLog()) {
+                LogPrintf("Rejected headers from peer=%d (%u headers, first %s): %s\n", pfrom.GetId(), headers.size(),
+                          headers.empty() ? std::string("-") : headers[0].GetHash().ToString(), state.ToString());
+            }
             MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
             return;
         }
