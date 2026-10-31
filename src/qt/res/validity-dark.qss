@@ -264,12 +264,24 @@ QComboBox QAbstractItemView {
 }
 
 /* === SPIN BOXES === */
-QSpinBox, QDoubleSpinBox {
+/* QAbstractSpinBox also covers the amount fields (AmountSpinBox), which had Qt's white frame */
+QAbstractSpinBox, QSpinBox, QDoubleSpinBox {
     background-color: #12121f;
     color: #c8c8d8;
     border: 1px solid #2d2d4a;
     border-radius: 5px;
     padding: 5px;
+    selection-background-color: #4ecca3;
+    selection-color: #0f0f1a;
+}
+
+QAbstractSpinBox:focus {
+    border: 1px solid #4ecca3;
+}
+
+QAbstractSpinBox:disabled {
+    background-color: #1e1e36;
+    color: #55556e;
 }
 
 /* === TABLES & LISTS === */
@@ -461,6 +473,14 @@ QSplitter::handle {
 /* ============================================= */
 /* ===== OVERVIEW PAGE                     ===== */
 /* ============================================= */
+
+/* Send page coin control box and Receive page request form: same card look as the panels
+   around them (they were plain StyledPanel frames drawn with Qt's light default border) */
+QFrame#frameCoinControl, QFrame#frame2 {
+    background-color: #1e1e36;
+    border: 1px solid #2d2d4a;
+    border-radius: 8px;
+}
 
 /* Card surfaces */
 QFrame#frame, QFrame#frame_2, QFrame#frameStakingReport {
