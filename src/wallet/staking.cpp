@@ -7,6 +7,7 @@
 
 #include <index/txindex.h>
 #include <util/strencodings.h>
+#include <util/translation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/receive.h>
 #include <wallet/staking.h>
@@ -32,6 +33,11 @@ void StartStake(CWallet& wallet) {
     }
     else if (!WITH_LOCK(wallet.cs_wallet, return wallet.GetKeyPoolSize())) {
         wallet.WalletLogPrintf("Error: Keypool is empty, please make sure the wallet contains keys, call keypoolrefill and restart the staking thread\n");
+        wallet.m_enabled_staking = false;
+    }
+    else if (!g_txindex) {
+        // VALIDITY: CreateCoinStake finds coins through the transaction index, so nothing would ever stake.
+        wallet.chain().initWarning(_("Staking is off because it needs the transaction index, and -txindex is disabled. Remove -txindex=0 to stake."));
         wallet.m_enabled_staking = false;
     }
     else {
