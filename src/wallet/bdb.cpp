@@ -342,7 +342,7 @@ bool BerkeleyDatabase::Verify(bilingual_str& errorStr)
             // VALIDITY: an older BDB can't read a newer file, and used to report a healthy wallet as
             // corrupt here. Wallets from 13.x and the release binaries need BDB 6.2.
             if (ReadBtreeVersion(file_path) > DB_BTREEVERSION) {
-                errorStr = strprintf(_("%s needs a newer Berkeley DB than this build uses (%s). The wallet is not damaged, so do not salvage it. Open it with a release binary, or a build using Berkeley DB 6.2 (see doc/build-unix.md)."), fs::quoted(fs::PathToString(file_path)), BerkeleyDatabaseVersion());
+                errorStr = strprintf(_("%s needs a newer Berkeley DB than this build uses (%s). The wallet is not damaged, so do not salvage it. Open it with a build using Berkeley DB 6.2 (see doc/build-unix.md)."), fs::quoted(fs::PathToString(file_path)), BerkeleyDatabaseVersion());
                 return false;
             }
             errorStr = strprintf(_("%s corrupt. Try using the wallet tool validity-wallet to salvage or restoring a backup."), fs::quoted(fs::PathToString(file_path)));

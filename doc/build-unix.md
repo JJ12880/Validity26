@@ -7,19 +7,44 @@ Some notes on how to build Validity in Unix.
 To Build
 ---------------------
 
-```bash
-./autogen.sh
-./configure
-make # use "-j N" for N parallel jobs
-make install # optional
-```
+Validity has no Linux binaries: on Linux you build your own wallet. These steps give you
+the GUI wallet and `validityd`, and the result can open wallets from 13.x and from the Windows
+and macOS binaries. They passed on every distribution under
+[Tested distributions](#tested-distributions). For other systems see `build-osx.md`,
+`build-windows.md` and `build-*bsd.md` in this directory.
 
-See below for instructions on how to [install the dependencies on popular Linux
-distributions](#linux-distribution-specific-instructions), or the
-[dependencies](#dependencies) section for a complete overview.
+1. Install the packages for [your distribution](#linux-distribution-specific-instructions). Skip
+   its Berkeley DB package. You also need `curl` and `patch`.
 
-If you have an existing `wallet.dat`, read [Berkeley DB](#berkeley-db) before you
-build: a build using your distribution's Berkeley DB can't open it.
+2. Build Berkeley DB 6.2. Distributions only package older versions, which
+   [can't open existing wallets](#berkeley-db):
+
+   ```bash
+   make -C depends NO_BOOST=1 NO_LIBEVENT=1 NO_QT=1 NO_SQLITE=1 NO_NATPMP=1 NO_UPNP=1 NO_ZMQ=1 NO_USDT=1
+   ```
+
+3. Configure. The folder name below is for x86-64; `make` prints yours at the end of step 2.
+
+   ```bash
+   export BDB_PREFIX="$PWD/depends/x86_64-pc-linux-gnu"
+   ./autogen.sh
+   ./configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-6.2" BDB_CFLAGS="-I${BDB_PREFIX}/include" \
+       --with-gui=qt5 --disable-tests --disable-bench --disable-fuzz-binary
+   ```
+
+   Check that the summary says `with bdb = yes` and `with gui / qt = yes`.
+
+4. Build. Each parallel job can use over 1.5 GB of memory, so pick `-j` to suit your machine:
+
+   ```bash
+   make -j4
+   ```
+
+5. Run `src/qt/validity-qt`, or `src/validityd` for a node without the GUI. To install them,
+   run `make install`.
+
+If you'll never open an existing wallet, you can skip steps 2 and 3's Berkeley DB flags and run
+a plain `./configure`. New wallets then use SQLite, and legacy wallets can't be opened.
 
 ## Memory Requirements
 
@@ -46,10 +71,12 @@ current chain height, and it keeps growing. 4 GB of RAM is recommended for a ful
 
 ### Tested distributions
 
-Each of these built `validityd` and `validity-qt` from source with the distribution's own
-packages, started both on a regtest datadir, and created descriptor and legacy wallets.
-Tests ran in x86_64 containers on 2026-10-30, using the package lists below. The GUI ran under
-Xvfb, except on AlmaLinux 10, which has no Xvfb, where it ran on Qt's offscreen platform.
+Each of these built `validityd` and `validity-qt` from source twice, once with the distribution's
+Berkeley DB package and once with Berkeley DB 6.2 from depends as in [To Build](#to-build). Both
+builds started `validityd` and `validity-qt` on a regtest datadir and created descriptor and legacy
+wallets. Tests ran in x86_64 containers on 2026-10-30 and 31, using the package lists below. The GUI
+ran under Xvfb, except on AlmaLinux 10, which has no Xvfb, where it ran on Qt's offscreen platform.
+The table shows what each distribution provides.
 
 | Distribution | GCC | Boost | Qt | Distro BDB | External signer |
 | --- | --- | --- | --- | --- | --- |
@@ -253,7 +280,7 @@ Tumbleweed and Leap 16:
 Leap 15.6 needs the newer compiler and Boost packages:
 
     sudo zypper install gcc13-c++ libtool make autoconf automake python3 pkg-config libevent-devel libboost_headers1_75_0-devel sqlite3-devel libqt5-qtbase-devel libqt5-qttools-devel
-    ./configure CC=gcc-13 CXX=g++-13
+    export CC=gcc-13 CXX=g++-13
 
 If Leap 15.6 reports a conflict between `libqt5-qttools-devel` and `libncurses6`, as it did when tested, add
 `--force-resolution` to the install. This downgrades `libncurses6`.
@@ -264,63 +291,6 @@ Optional packages:
 
 `libnatpmp-devel` isn't available on any of these, and `cppzmq-devel` isn't available on Leap 16. `libdb-4_8-devel` is
 Berkeley DB 4.8, which needs `--with-incompatible-bdb` and can't open existing wallets. See [Berkeley DB](#berkeley-db).
-
-## Portable Linux Builds
-
-A build made through [depends](/depends/README.md) on an old distribution runs on newer ones. The result depends on
-the glibc of the build system:
-
-| Built on | Needs | Tested and working on |
-| --- | --- | --- |
-| AlmaLinux 8 (glibc 2.28) | glibc 2.28, GLIBCXX 3.4.22 | Every distribution in the [table above](#tested-distributions) |
-| Ubuntu 20.04 (glibc 2.31) | glibc 2.29, GLIBCXX 3.4.26 | The same, except AlmaLinux 8 |
-
-Neither runs on Ubuntu 18.04 (glibc 2.27). On Debian 10 (glibc 2.28), the AlmaLinux 8 build's `validityd` starts, but
-nothing else could be tested because its package repositories are gone. On AlmaLinux 10, the GUI's libraries load but
-the GUI itself couldn't be started, because Xvfb isn't available there.
-
-Build tools on Ubuntu 20.04:
-
-    sudo apt-get install build-essential make automake cmake curl ca-certificates libtool binutils bsdmainutils pkg-config python3 patch bison xz-utils
-
-Build tools on AlmaLinux 8, after enabling `powertools` and EPEL as above:
-
-    sudo dnf install gcc-toolset-13-gcc-c++ gcc-toolset-13-binutils make automake autoconf cmake curl libtool binutils pkgconf-pkg-config python3 patch bison xz diffutils which findutils file tar gzip bzip2 perl-interpreter
-    source /opt/rh/gcc-toolset-13/enable
-
-Then build, including Qt and Berkeley DB 6.2:
-
-```bash
-make -C depends HOST=x86_64-pc-linux-gnu NO_UPNP=1 NO_NATPMP=1 NO_USDT=1 -j8
-./autogen.sh
-CONFIG_SITE=$PWD/depends/x86_64-pc-linux-gnu/share/config.site ./configure --prefix=/ --with-gui=qt5 \
-    --disable-tests --disable-bench --disable-fuzz-binary --without-miniupnpc --without-natpmp
-make -j8
-```
-
-### Running a portable build
-
-`validityd` and the command line tools only need glibc and libstdc++. `validity-qt` also needs these system libraries,
-which desktop systems usually have most of:
-
-Ubuntu, Debian & Linux Mint:
-
-    sudo apt install libfontconfig1 libfreetype6 libxcb1 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon0 libxkbcommon-x11-0 fonts-dejavu-core
-
-Fedora, AlmaLinux, Rocky Linux & RHEL (on AlmaLinux 10, install `epel-release` first):
-
-    sudo dnf install fontconfig freetype libxcb xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbcommon libxkbcommon-x11 dejavu-sans-fonts libstdc++
-
-Arch Linux:
-
-    sudo pacman -Syu --needed fontconfig freetype2 libxcb xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbcommon libxkbcommon-x11 ttf-dejavu
-
-openSUSE:
-
-    sudo zypper install fontconfig libfreetype6 libxcb1 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon0 libxkbcommon-x11-0 dejavu-fonts libstdc++6
-
-The portable `validity-qt` only has Qt's X11 (`xcb`) platform plugin. On a Wayland desktop it needs XWayland, and on a
-system with no display it can't start at all, including `validity-qt -version`. Use `validityd` on servers.
 
 ## Dependencies
 
@@ -351,21 +321,7 @@ salvage it. Open it with a BDB 6.2 build instead.
 A plain `./configure` that only finds an older Berkeley DB builds without legacy
 wallet support. Pass `--with-incompatible-bdb` to use it anyway.
 
-To use Berkeley DB 6.2, build it yourself. It needs `curl` to download the source. If
-you don't want to use any other libraries built in depends, you can do:
-```bash
-make -C depends NO_BOOST=1 NO_LIBEVENT=1 NO_QT=1 NO_SQLITE=1 NO_NATPMP=1 NO_UPNP=1 NO_ZMQ=1 NO_USDT=1
-...
-to: /path/to/validity/depends/x86_64-pc-linux-gnu
-```
-and configure using the following:
-```bash
-export BDB_PREFIX="/path/to/validity/depends/x86_64-pc-linux-gnu"
-
-./configure \
-    BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-6.2" \
-    BDB_CFLAGS="-I${BDB_PREFIX}/include"
-```
+To use Berkeley DB 6.2, follow [To Build](#to-build) above.
 
 **Note**: Make sure that `BDB_PREFIX` is an absolute path.
 
