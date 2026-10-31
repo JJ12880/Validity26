@@ -81,13 +81,7 @@ int64_t GetMaxTransactionTime(CBlock* pblock)
 
 void RegenerateCommitments(CBlock& block, ChainstateManager& chainman)
 {
-    CMutableTransaction tx{*block.vtx.at(0)};
-    tx.vout.erase(tx.vout.begin() + GetWitnessCommitmentIndex(block));
-    block.vtx.at(0) = MakeTransactionRef(tx);
-
-    const CBlockIndex* prev_block = WITH_LOCK(::cs_main, return chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock));
-    chainman.GenerateCoinbaseCommitment(block, prev_block);
-
+    // VALIDITY: no segwit, so there is no witness commitment to regenerate.
     block.hashMerkleRoot = BlockMerkleRoot(block);
 }
 
@@ -131,7 +125,6 @@ void BlockAssembler::resetBlock()
     // Reserve space for coinbase tx
     nBlockWeight = 4000;
     nBlockSigOpsCost = 400;
-    fIncludeWitness = false;
 
     // These counters do not include coinbase tx
     nBlockTx = 0;
@@ -171,16 +164,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->nTime = GetAdjustedTimeSeconds();
     m_lock_time_cutoff = pindexPrev->GetMedianTimePast();
 
-    // Decide whether to include witness transactions
-    // This is only needed in case the witness softfork activation is reverted
-    // (which would require a very deep reorganization).
-    // Note that the mempool would accept transactions with witness data before
-    // the deployment is active, but we would only ever mine blocks after activation
-    // unless there is a massive block reorganization with the witness softfork
-    // not activated.
-    // TODO: replace this with a call to main to assess validity of a mempool
-    // transaction (which in most cases can be a no-op).
-    fIncludeWitness = DeploymentActiveAfter(pindexPrev, m_chainstate.m_chainman, Consensus::DEPLOYMENT_SEGWIT);
 
     // VALIDITY-PORT: a PoS block's time equals the coinstake time, which is the current
     // time rounded down to nStakeTimestampMask. Select only transactions no newer than
@@ -250,8 +233,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
-    if (fIncludeWitness)
-        pblocktemplate->vchCoinbaseCommitment = m_chainstate.m_chainman.GenerateCoinbaseCommitment(*pblock, pindexPrev);
     pblocktemplate->vTxFees[0] = -nFees;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
@@ -317,7 +298,7 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
         if (!IsFinalTx(it->GetTx(), nHeight, m_lock_time_cutoff)) {
             return false;
         }
-        if (!fIncludeWitness && it->GetTx().HasWitness()) {
+        if (it->GetTx().HasWitness()) {
             return false;
         }
         // peercoin: timestamp limit

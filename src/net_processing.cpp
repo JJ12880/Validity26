@@ -1570,10 +1570,6 @@ void PeerManagerImpl::FindNextBlocks(std::vector<const CBlockIndex*>& vBlocks, c
                 // We consider the chain that this peer is on invalid.
                 return;
             }
-            if (!CanServeWitnesses(peer) && DeploymentActiveAt(*pindex, m_chainman, Consensus::DEPLOYMENT_SEGWIT)) {
-                // We wouldn't download this block or its descendants from this peer.
-                return;
-            }
             if (pindex->nStatus & BLOCK_HAVE_DATA || (activeChain && activeChain->Contains(pindex))) {
                 if (activeChain && pindex->HaveNumChainTxs())
                     state->pindexLastCommonBlock = pindex;
@@ -2250,54 +2246,8 @@ void PeerManagerImpl::BlockDisconnected(const std::shared_ptr<const CBlock> &blo
  */
 void PeerManagerImpl::NewPoWValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock>& pblock)
 {
-    auto pcmpctblock = std::make_shared<const CBlockHeaderAndShortTxIDs>(*pblock);
-    const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
-
-    LOCK(cs_main);
-
-    if (pindex->nHeight <= m_highest_fast_announce)
-        return;
-    m_highest_fast_announce = pindex->nHeight;
-
-    if (!DeploymentActiveAt(*pindex, m_chainman, Consensus::DEPLOYMENT_SEGWIT)) return;
-
-    uint256 hashBlock(pblock->GetHash());
-    const std::shared_future<CSerializedNetMsg> lazy_ser{
-        std::async(std::launch::deferred, [&] { return msgMaker.Make(NetMsgType::CMPCTBLOCK, *pcmpctblock); })};
-
-    {
-        auto most_recent_block_txs = std::make_unique<std::map<uint256, CTransactionRef>>();
-        for (const auto& tx : pblock->vtx) {
-            most_recent_block_txs->emplace(tx->GetHash(), tx);
-            most_recent_block_txs->emplace(tx->GetWitnessHash(), tx);
-        }
-
-        LOCK(m_most_recent_block_mutex);
-        m_most_recent_block_hash = hashBlock;
-        m_most_recent_block = pblock;
-        m_most_recent_compact_block = pcmpctblock;
-        m_most_recent_block_txs = std::move(most_recent_block_txs);
-    }
-
-    m_connman.ForEachNode([this, pindex, &lazy_ser, &hashBlock](CNode* pnode) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
-        AssertLockHeld(::cs_main);
-
-        if (pnode->GetCommonVersion() < INVALID_CB_NO_BAN_VERSION || pnode->fDisconnect)
-            return;
-        ProcessBlockAvailability(pnode->GetId());
-        CNodeState &state = *State(pnode->GetId());
-        // If the peer has, or we announced to them the previous block already,
-        // but we don't think they have this one, go ahead and announce it
-        if (state.m_requested_hb_cmpctblocks && !PeerHasHeader(&state, pindex) && PeerHasHeader(&state, pindex->pprev)) {
-
-            LogPrint(BCLog::NET, "%s sending header-and-ids %s to peer=%d\n", "PeerManager::NewPoWValidBlock",
-                    hashBlock.ToString(), pnode->GetId());
-
-            const CSerializedNetMsg& ser_cmpctblock{lazy_ser.get()};
-            m_connman.PushMessage(pnode, ser_cmpctblock.Copy());
-            state.pindexBestHeaderSent = pindex;
-        }
-    });
+    // VALIDITY: compact block announcements carry witness hashes and are only sent with segwit, which
+    // this chain doesn't have. Blocks are announced the normal way once they connect.
 }
 
 /**
@@ -3007,8 +2957,7 @@ void PeerManagerImpl::HeadersDirectFetchBlocks(CNode& pfrom, const Peer& peer, c
         // Calculate all the blocks we'd need to switch to last_header, up to a limit.
         while (pindexWalk && !m_chainman.ActiveChain().Contains(pindexWalk) && vToFetch.size() <= MAX_BLOCKS_IN_TRANSIT_PER_PEER) {
             if (!(pindexWalk->nStatus & BLOCK_HAVE_DATA) &&
-                    !IsBlockRequested(pindexWalk->GetBlockHash()) &&
-                    (!DeploymentActiveAt(*pindexWalk, m_chainman, Consensus::DEPLOYMENT_SEGWIT) || CanServeWitnesses(peer))) {
+                    !IsBlockRequested(pindexWalk->GetBlockHash())) {
                 // We don't have this block, and it's not yet in flight.
                 vToFetch.push_back(pindexWalk);
             }
@@ -4972,9 +4921,9 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 
         const CBlockIndex* prev_block{WITH_LOCK(m_chainman.GetMutex(), return m_chainman.m_blockman.LookupBlockIndex(pblock->hashPrevBlock))};
 
-        // Check for possible mutation if it connects to something we know so we can check for DEPLOYMENT_SEGWIT being active
+        // Check for possible mutation if it connects to something we know
         if (prev_block && IsBlockMutated(/*block=*/*pblock,
-                           /*check_witness_root=*/DeploymentActiveAfter(prev_block, m_chainman, Consensus::DEPLOYMENT_SEGWIT))) {
+                           /*check_witness_root=*/false)) {
             LogPrint(BCLog::NET, "Received mutated block from peer=%d\n", peer->m_id);
             Misbehaving(*peer, 100, "mutated block");
             WITH_LOCK(cs_main, RemoveBlockRequest(pblock->GetHash(), peer->m_id));

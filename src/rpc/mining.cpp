@@ -717,8 +717,7 @@ static RPCHelpMan getblocktemplate()
     static int64_t time_start;
     static std::unique_ptr<CBlockTemplate> pblocktemplate;
 
-    // NOTE: If at some point we support pre-segwit miners post-segwit-activation, this needs to take segwit support into consideration
-    const bool fPreSegWit = !DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_SEGWIT);
+    constexpr bool fPreSegWit{true}; // VALIDITY: this chain has no segwit
 
     // GBT must be called with 'segwit' set in the rules
     if (!fPreSegWit && setClientRules.count("segwit") != 1) {

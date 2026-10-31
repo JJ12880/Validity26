@@ -81,7 +81,6 @@ public:
         consensus.nMaxReorganizationDepth = 500;
         // VALIDITY-PORT: All consensus constants from validity-ref/src/chainparams.cpp
         consensus.CSVHeight = std::numeric_limits<int>::max(); // CSV not activated on Validity
-        consensus.SegwitHeight = std::numeric_limits<int>::max();
         consensus.MinBIP9WarningHeight = std::numeric_limits<int>::max();
         consensus.powLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimit = uint256S("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -100,17 +99,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0;
 
-        // SegWit not activated on Validity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].min_activation_height = 0;
 
-        // Taproot not activated on Validity
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0;
 
         // VALIDITY-PORT: Protocol times from validity-ref
         consensus.nProtocolV1RetargetingFixedTime = 1395631999;
@@ -240,7 +229,6 @@ public:
         consensus.signet_challenge.clear();
         consensus.nMaxReorganizationDepth = 500;
         consensus.CSVHeight = std::numeric_limits<int>::max();
-        consensus.SegwitHeight = std::numeric_limits<int>::max();
         consensus.MinBIP9WarningHeight = std::numeric_limits<int>::max();
         // VALIDITY-PORT: Testnet limits from validity-ref
         consensus.powLimit = uint256S("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -260,15 +248,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0;
 
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].min_activation_height = 0;
 
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0;
 
         // VALIDITY-PORT: Protocol times from validity-ref testnet
         consensus.nProtocolV1RetargetingFixedTime = 1395631999;
@@ -382,7 +362,6 @@ public:
         consensus.signet_challenge.assign(bin.begin(), bin.end());
         consensus.nMaxReorganizationDepth = 500;
         consensus.CSVHeight = 1;
-        consensus.SegwitHeight = 1;
         consensus.nTargetTimespan = 16 * 60; // 16 mins
         consensus.nTargetTimespanNEW = 16 * 60; // same as nTargetTimespan for testnet/regtest
         consensus.nTargetSpacingV1 = 64;
@@ -401,11 +380,6 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0; // No activation delay
 
-        // Activation of Taproot (BIPs 340-342)
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
 
         consensus.nProtocolV1RetargetingFixedTime = 1707168541;
         consensus.nProtocolV2Time = 1707168542;
@@ -462,7 +436,6 @@ public:
         consensus.signet_challenge.clear();
         consensus.nMaxReorganizationDepth = 50;
         consensus.CSVHeight = 1;
-        consensus.SegwitHeight = 1;
         consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -481,17 +454,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0; // No activation delay
 
-        // Deployment of SegWit (BIP141, BIP143, and BIP147)
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].min_activation_height = 0; // No activation delay
 
-        // Deployment of Taproot (BIPs 340-342)
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
 
         consensus.nProtocolV1RetargetingFixedTime = 1395631999;
         consensus.nProtocolV2Time = 1407053625;
@@ -514,11 +477,6 @@ public:
 
         for (const auto& [dep, height] : opts.activation_heights) {
             switch (dep) {
-            /*
-            case Consensus::BuriedDeployment::DEPLOYMENT_SEGWIT:
-                consensus.SegwitHeight = int{height};
-                break;
-            */
             case Consensus::BuriedDeployment::DEPLOYMENT_CSV:
                 consensus.CSVHeight = int{height};
                 break;

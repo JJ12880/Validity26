@@ -815,9 +815,7 @@ public:
     }
     bool isTaprootActive() const override
     {
-        LOCK(::cs_main);
-        const CBlockIndex* tip = Assert(m_node.chainman)->ActiveChain().Tip();
-        return DeploymentActiveAfter(tip, *m_node.chainman, Consensus::DEPLOYMENT_TAPROOT);
+        return false; // VALIDITY: this chain has no taproot
     }
     CBlockIndex* getTip() const override
     {

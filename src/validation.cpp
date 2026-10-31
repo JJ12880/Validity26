@@ -731,9 +731,9 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     if (tx.IsCoinStake())
         return state.Invalid(TxValidationResult::TX_CONSENSUS, "coinstake");
 
-    // Reject transactions with witness before segregated witness activates (override with -prematurewitness)
-    bool witnessEnabled = DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), m_active_chainstate.m_chainman, Consensus::DEPLOYMENT_SEGWIT);
-    if (!gArgs.GetBoolArg("-prematurewitness", false) && tx.HasWitness() && !witnessEnabled) {
+    // VALIDITY: this chain has no segwit, so witness data and witness outputs are never accepted.
+    constexpr bool witnessEnabled{false};
+    if (tx.HasWitness()) {
         return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "no-witness-yet");
     }
 
@@ -2368,12 +2368,6 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex& block_index, const Ch
         flags = it->second;
     }
 
-    // Enforce WITNESS rules whenever P2SH is in effect (and the segwit
-    // deployment is active).
-    if (flags & SCRIPT_VERIFY_P2SH && DeploymentActiveAt(block_index, chainman, Consensus::DEPLOYMENT_SEGWIT)) {
-        flags |= SCRIPT_VERIFY_WITNESS;
-    }
-
     // Enforce CHECKLOCKTIMEVERIFY (BIP65) and BIP147 NULLDUMMY
     if (consensusparams.IsProtocolV3(block_index.GetBlockTime())) {
         flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
@@ -2383,11 +2377,6 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex& block_index, const Ch
     // Enforce CHECKSEQUENCEVERIFY (BIP112)
     if (DeploymentActiveAt(block_index, chainman, Consensus::DEPLOYMENT_CSV)) {
         flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
-    }
-
-    // Enforce Taproot (BIP340-BIP342)
-    if (DeploymentActiveAt(block_index, chainman, Consensus::DEPLOYMENT_TAPROOT)) {
-        flags |= SCRIPT_VERIFY_TAPROOT;
     }
 
     return flags;
@@ -2431,8 +2420,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // may have let in a block that violates the rule prior to updating the
     // software, and we would NOT be enforcing the rule here. Fully solving
     // upgrade from one software version to the next after a consensus rule
-    // change is potentially tricky and issue-specific (see NeedsRedownload()
-    // for one approach that was used for BIP 141 deployment).
+    // change is potentially tricky and issue-specific.
     // Also, currently the rule against blocks more than 2 hours in the future
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
@@ -3774,9 +3762,6 @@ void ChainstateManager::ReceivedBlockTransactions(const CBlock& block, CBlockInd
     pindexNew->nDataPos = pos.nPos;
     pindexNew->nUndoPos = 0;
     pindexNew->nStatus |= BLOCK_HAVE_DATA;
-    if (DeploymentActiveAt(*pindexNew, *this, Consensus::DEPLOYMENT_SEGWIT)) {
-        pindexNew->nStatus |= BLOCK_OPT_WITNESS;
-    }
     pindexNew->RaiseValidity(BLOCK_VALID_TRANSACTIONS);
     m_blockman.m_dirty_blockindex.insert(pindexNew);
 
@@ -4059,14 +4044,7 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
 
 void ChainstateManager::UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev) const
 {
-    int commitpos = GetWitnessCommitmentIndex(block);
-    static const std::vector<unsigned char> nonce(32, 0x00);
-    if (commitpos != NO_WITNESS_COMMITMENT && DeploymentActiveAfter(pindexPrev, *this, Consensus::DEPLOYMENT_SEGWIT) && !block.vtx[0]->HasWitness()) {
-        CMutableTransaction tx(*block.vtx[0]);
-        tx.vin[0].scriptWitness.stack.resize(1);
-        tx.vin[0].scriptWitness.stack[0] = nonce;
-        block.vtx[0] = MakeTransactionRef(std::move(tx));
-    }
+    // VALIDITY: no segwit, so a block has no witness nonce to fill in.
 }
 
 std::vector<unsigned char> ChainstateManager::GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev) const
@@ -4268,7 +4246,7 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
     // * There must be at least one output whose scriptPubKey is a single 36-byte push, the first 4 bytes of which are
     //   {0xaa, 0x21, 0xa9, 0xed}, and the following 32 bytes are SHA256^2(witness root, witness reserved value). In case there are
     //   multiple, the last one is used.
-    if (!CheckWitnessMalleation(block, DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_SEGWIT), state)) {
+    if (!CheckWitnessMalleation(block, /*expect_witness_commitment=*/false, state)) {
         return false;
     }
 
@@ -4984,24 +4962,6 @@ bool Chainstate::ReplayBlocks()
     cache.Flush();
     m_chainman.GetNotifications().progress(bilingual_str{}, 100, false);
     return true;
-}
-
-bool Chainstate::NeedsRedownload() const
-{
-    AssertLockHeld(cs_main);
-
-    // At and above m_params.SegwitHeight, segwit consensus rules must be validated
-    CBlockIndex* block{m_chain.Tip()};
-
-    while (block != nullptr && DeploymentActiveAt(*block, m_chainman, Consensus::DEPLOYMENT_SEGWIT)) {
-        if (!(block->nStatus & BLOCK_OPT_WITNESS)) {
-            // block is insufficiently validated for a segwit client
-            return true;
-        }
-        block = block->pprev;
-    }
-
-    return false;
 }
 
 void Chainstate::ClearBlockIndexCandidates()
@@ -5989,12 +5949,6 @@ bool ChainstateManager::PopulateAndValidateSnapshot(
             // This flag will be removed once the block is fully validated by a
             // background chainstate.
             index->nStatus |= BLOCK_ASSUMED_VALID;
-        }
-
-        // Fake BLOCK_OPT_WITNESS so that Chainstate::NeedsRedownload()
-        // won't ask to rewind the entire assumed-valid chain on startup.
-        if (DeploymentActiveAt(*index, *this, Consensus::DEPLOYMENT_SEGWIT)) {
-            index->nStatus |= BLOCK_OPT_WITNESS;
         }
 
         m_blockman.m_dirty_blockindex.insert(index);

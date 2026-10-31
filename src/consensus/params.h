@@ -28,8 +28,6 @@ constexpr bool ValidDeployment(BuriedDeployment dep) { return dep <= DEPLOYMENT_
 
 enum DeploymentPos : uint16_t {
     DEPLOYMENT_TESTDUMMY,
-    DEPLOYMENT_SEGWIT, // Deployment of SegWit (BIP141, BIP143, and BIP147)
-    DEPLOYMENT_TAPROOT, // Deployment of Schnorr/Taproot (BIPs 340-342)
     // NOTE: Also add new deployments to VersionBitsDeploymentInfo in deploymentinfo.cpp
     MAX_VERSION_BITS_DEPLOYMENTS
 };
@@ -81,10 +79,6 @@ struct Params {
     std::map<uint256, uint32_t> script_flag_exceptions;
     /** Block height at which CSV (BIP68, BIP112 and BIP113) becomes active */
     int CSVHeight;
-    /** Block height at which Segwit (BIP141, BIP143 and BIP147) becomes active.
-     * Note that segwit v0 script rules are enforced on all blocks except the
-     * BIP 16 exception blocks. */
-    int SegwitHeight;
     /** Don't warn about unknown BIP 9 activations below this height.
      * This prevents us from warning about the CSV activation. */
     int MinBIP9WarningHeight;

@@ -132,15 +132,6 @@ static ChainstateLoadResult CompleteChainstateInitialization(
         }
     }
 
-    if (!options.reindex) {
-        auto chainstates{chainman.GetAll()};
-        if (std::any_of(chainstates.begin(), chainstates.end(),
-                        [](const Chainstate* cs) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return cs->NeedsRedownload(); })) {
-            return {ChainstateLoadStatus::FAILURE, strprintf(_("Witness data for blocks after height %d requires validation. Please restart with -reindex."),
-                                                             chainman.GetConsensus().SegwitHeight)};
-        };
-    }
-
     // Now that chainstates are loaded and we're able to flush to
     // disk, rebalance the coins caches to desired levels based
     // on the condition of each chainstate.
