@@ -1,8 +1,10 @@
 # macOS Build Guide
 
-**Updated for MacOS [11.2](https://www.apple.com/macos/big-sur/)**
+**Tested on macOS 14.7 with Xcode 16.2 on Apple Silicon. Release builds target macOS 11.0 or later.**
 
 This guide describes how to build validityd, command-line utilities, and GUI on macOS
+
+For binaries you plan to distribute, use the [release build](#release-build-using-depends). It is also the only way to get the Berkeley DB 6.2 that legacy wallets need.
 
 ## Preparation
 
@@ -58,7 +60,7 @@ Now that all the required dependencies are installed, let's clone the Validity r
 All build scripts and commands will run from this directory.
 
 ``` bash
-git clone https://github.com/RadiumCore/Validity.git
+git clone https://github.com/JJ12880/Validity26.git
 ```
 
 ### 5. Install Optional Dependencies
@@ -76,12 +78,9 @@ install anything.
 
 ###### Legacy Wallet Support
 
-`berkeley-db@4` is only required to support for legacy wallets.
+Legacy wallets need Berkeley DB 6.2. Validity 13.x wallets are in BDB 6.2 format, and older versions can't open them.
+Homebrew has no 6.2 formula, so build it through depends: see the [release build](#release-build-using-depends).
 Skip if you don't intend to use legacy wallets.
-
-``` bash
-brew install berkeley-db@4
-```
 ---
 
 #### GUI Dependencies
@@ -174,8 +173,8 @@ There are many ways to configure Validity, here are a few common examples:
 
 ##### Wallet (BDB + SQlite) Support, No GUI:
 
-If `berkeley-db@62` is installed, then legacy wallet support will be built.
-If `berkeley-db@62` is not installed, then this will throw an error.
+If Berkeley DB 6.2 is found, then legacy wallet support will be built.
+If it is not found, `configure` only warns and builds without legacy wallet support, so check that the summary says `with bdb = yes`.
 If `sqlite` is installed, then descriptor wallet support will also be built.
 Additionally, this explicitly disables the GUI.
 
@@ -224,10 +223,61 @@ make check  # Run tests if Python 3 is available
 
 ### 3. Deploy (optional)
 
-You can also create a  `.zip` containing the `.app` bundle by running the following command:
+You can also create a `.zip` containing the `.app` bundle by running the following command:
 
 ``` bash
 make deploy
+```
+
+This produces `Validity.zip`, which contains only `Validity-Qt.app`, not the command-line tools.
+
+## Release build using depends
+
+This builds Qt 5.15.10, Berkeley DB 6.2.38 and the other libraries from source and links them statically, so the binaries only need macOS system libraries at runtime.
+
+You need Xcode, plus `automake`, `libtool` and `pkg-config` from Homebrew. Check that `brew list --versions qt@5` prints nothing: when `qt@5` is installed, `configure` adds it to `PKG_CONFIG_PATH`, and the build could link against it.
+
+``` bash
+make -C depends NO_UPNP=1 NO_NATPMP=1 NO_USDT=1 -j6
+./autogen.sh
+CONFIG_SITE=$PWD/depends/aarch64-apple-darwin23.6.0/share/config.site ./configure --disable-tests --disable-bench --disable-fuzz-binary --without-miniupnpc --without-natpmp
+make -j6
+make deploy
+```
+
+The folder name under `depends` includes your Darwin version, so `aarch64-apple-darwin23.6.0` may differ on your machine.
+
+Before going further, check that:
+
+- the `configure` summary says `with bdb = yes` and `with gui / qt = yes`
+- `otool -L src/validityd src/qt/validity-qt` lists only paths under `/usr/lib` and `/System/Library`
+
+For the command-line tools, which `make deploy` leaves out, run this. The binaries end up in `stage/validity-26.2.0/bin`.
+
+``` bash
+make install-strip DESTDIR=$PWD/stage prefix=/validity-26.2.0
+```
+
+### Intel build
+
+Use a separate clone so the two builds don't overwrite each other, and build the same way with the Intel host:
+
+``` bash
+make -C depends HOST=x86_64-apple-darwin NO_UPNP=1 NO_NATPMP=1 NO_USDT=1 -j6
+./autogen.sh
+CONFIG_SITE=$PWD/depends/x86_64-apple-darwin/share/config.site ./configure --disable-tests --disable-bench --disable-fuzz-binary --without-miniupnpc --without-natpmp
+make -j6
+make deploy
+```
+
+This has been tested on Apple Silicon with Rosetta installed, not on an Intel Mac.
+
+### Opening a downloaded build
+
+These builds are ad-hoc signed and not notarized, so macOS blocks them after download with the message "Apple cannot check it for malicious software". To allow the app, run:
+
+``` bash
+xattr -dr com.apple.quarantine /path/to/Validity-Qt.app
 ```
 
 ## Running Validity
