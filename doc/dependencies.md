@@ -22,6 +22,8 @@ You can find installation instructions in the `build-*.md` file for your platfor
 | glibc | [link](https://www.gnu.org/software/libc/) | N/A | [2.27](https://github.com/bitcoin/bitcoin/pull/27029) | Yes |
 | Linux Kernel | [link](https://www.kernel.org/) | N/A | [3.17.0](https://github.com/bitcoin/bitcoin/pull/27699) | Yes |
 
+External signer (hardware signer) support needs a Boost.Process that provides `boost::process::filesystem`. `configure` turns the feature off automatically when it doesn't. In testing it was on with Boost 1.81, 1.83 and 1.86, and off with 1.66, 1.71, 1.74, 1.75, 1.90 and 1.92.
+
 ## Optional
 
 ### GUI
