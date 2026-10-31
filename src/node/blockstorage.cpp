@@ -30,6 +30,7 @@
 #include <wallet/wallet.h>
 #endif
 
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 
@@ -39,6 +40,7 @@ static constexpr uint8_t DB_BLOCK_INDEX{'b'};
 static constexpr uint8_t DB_FLAG{'F'};
 static constexpr uint8_t DB_REINDEX_FLAG{'R'};
 static constexpr uint8_t DB_LAST_BLOCK{'l'};
+static constexpr size_t BLOCK_INDEX_BATCH_BYTES{16 << 20};
 // Keys used in previous version that might still be found in the DB:
 // BlockTreeDB::DB_TXINDEX_BLOCK{'T'};
 // BlockTreeDB::DB_TXINDEX{'t'}
@@ -77,6 +79,13 @@ bool BlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFi
     batch.Write(DB_LAST_BLOCK, nLastFile);
     for (const CBlockIndex* bi : blockinfo) {
         batch.Write(std::make_pair(DB_BLOCK_INDEX, bi->GetBlockHash()), CDiskBlockIndex{bi});
+        // VALIDITY: the first flush after header sync writes ~6M entries. In one batch that takes
+        // gigabytes on top of the index in memory, which got the node OOM-killed on small machines.
+        // Callers pass parents first, so a crash between chunks can't leave a child without its parent.
+        if (batch.SizeEstimate() > BLOCK_INDEX_BATCH_BYTES) {
+            if (!WriteBatch(batch)) return false;
+            batch.Clear();
+        }
     }
     return WriteBatch(batch, true);
 }
@@ -350,6 +359,8 @@ bool BlockManager::WriteBlockIndexDB()
         vBlocks.push_back(*it);
         m_dirty_blockindex.erase(it++);
     }
+    // VALIDITY: parents first, because WriteBatchSync writes in chunks.
+    std::sort(vBlocks.begin(), vBlocks.end(), [](const CBlockIndex* a, const CBlockIndex* b) { return a->nHeight < b->nHeight; });
     int max_blockfile = WITH_LOCK(cs_LastBlockFile, return this->MaxBlockfileNum());
     if (!m_block_tree_db->WriteBatchSync(vFiles, max_blockfile, vBlocks)) {
         return false;
