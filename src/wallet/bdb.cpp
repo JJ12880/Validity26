@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <compat/compat.h>
+#include <crypto/common.h>
 #include <logging.h>
 #include <util/fs.h>
 #include <util/time.h>
@@ -16,6 +17,7 @@
 #include <util/strencodings.h>
 #include <util/translation.h>
 
+#include <fstream>
 #include <stdint.h>
 
 #include <db_cxx.h>
@@ -63,6 +65,17 @@ void CheckUniqueFileid(const BerkeleyEnvironment& env, const std::string& filena
 
 RecursiveMutex cs_db;
 std::map<std::string, std::weak_ptr<BerkeleyEnvironment>> g_dbenvs GUARDED_BY(cs_db); //!< Map from directory name to db environment.
+
+//! VALIDITY: btree format version in a wallet file's header, or 0 if it can't be read.
+uint32_t ReadBtreeVersion(const fs::path& path)
+{
+    std::ifstream file{path, std::ios::binary};
+    unsigned char header[20];
+    if (!file.read(reinterpret_cast<char*>(header), sizeof(header))) return 0;
+    if (ReadLE32(header + 12) == 0x00053162) return ReadLE32(header + 16);
+    if (ReadBE32(header + 12) == 0x00053162) return ReadBE32(header + 16);
+    return 0;
+}
 } // namespace
 
 bool WalletDatabaseFileId::operator==(const WalletDatabaseFileId& rhs) const
@@ -326,6 +339,12 @@ bool BerkeleyDatabase::Verify(bilingual_str& errorStr)
         const std::string strFile = fs::PathToString(m_filename);
         int result = db.verify(strFile.c_str(), nullptr, nullptr, 0);
         if (result != 0) {
+            // VALIDITY: an older BDB can't read a newer file, and used to report a healthy wallet as
+            // corrupt here. Wallets from 13.x and the release binaries need BDB 6.2.
+            if (ReadBtreeVersion(file_path) > DB_BTREEVERSION) {
+                errorStr = strprintf(_("%s needs a newer Berkeley DB than this build uses (%s). The wallet is not damaged, so do not salvage it. Open it with a release binary, or a build using Berkeley DB 6.2 (see doc/build-unix.md)."), fs::quoted(fs::PathToString(file_path)), BerkeleyDatabaseVersion());
+                return false;
+            }
             errorStr = strprintf(_("%s corrupt. Try using the wallet tool validity-wallet to salvage or restoring a backup."), fs::quoted(fs::PathToString(file_path)));
             return false;
         }

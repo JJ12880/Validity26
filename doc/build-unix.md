@@ -343,10 +343,10 @@ openSUSE). What a build can open depends on which one it uses:
 Opening a BDB 5.3 wallet with a BDB 6.2 build doesn't convert it, so the BDB 5.3
 build can still open it afterwards.
 
-**Warning**: A build with an older Berkeley DB reports a good wallet from BDB 6.2 as
-corrupt, and suggests salvaging it with `validity-wallet`. The real cause, in the
-wallet's `db.log`, is `unsupported database version 10`. Don't salvage the wallet.
-Open it with a BDB 6.2 build instead.
+**Warning**: A build with an older Berkeley DB can't read a wallet from BDB 6.2, and
+says the wallet needs a newer Berkeley DB. Builds before v26.2.0-beta6 wrongly call it
+corrupt and suggest salvaging it with `validity-wallet`. The wallet is fine, so don't
+salvage it. Open it with a BDB 6.2 build instead.
 
 A plain `./configure` that only finds an older Berkeley DB builds without legacy
 wallet support. Pass `--with-incompatible-bdb` to use it anyway.
