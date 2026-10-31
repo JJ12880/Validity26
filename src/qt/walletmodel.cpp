@@ -99,6 +99,8 @@ void WalletModel::startPollBalance()
 {
     // Update the cached balance right away, so every view can make use of it,
     // so them don't need to waste resources recalculating it.
+    // VALIDITY: don't wait out the syncing skip, or a wallet that was closed for a while shows 0 at first.
+    pollNum = pollSyncSkip;
     pollBalanceChanged();
 
     // This timer will be fired repeatedly to update the balance
