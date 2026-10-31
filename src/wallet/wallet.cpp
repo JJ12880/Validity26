@@ -3195,6 +3195,16 @@ std::shared_ptr<CWallet> CWallet::Create(WalletContext& context, const std::stri
         return nullptr;
     }
 
+    // VALIDITY: a stake whose block left the chain while this wallet wasn't loaded still counts as
+    // spending its coins, which hides them from the balance and from staking. Blocks disconnecting
+    // only catch that when one happens later, so check at load too. Skipped during initial sync,
+    // when most of the wallet's blocks aren't connected yet.
+    if (chain && !chain->isInitialBlockDownload()) {
+        const auto check_start{SteadyClock::now()};
+        walletInstance->AbandonOrphanedCoinstakes();
+        walletInstance->WalletLogPrintf("Checked for orphaned coinstakes in %dms\n", Ticks<std::chrono::milliseconds>(SteadyClock::now() - check_start));
+    }
+
     {
         LOCK(walletInstance->cs_wallet);
         walletInstance->SetBroadcastTransactions(args.GetBoolArg("-walletbroadcast", DEFAULT_WALLETBROADCAST));
