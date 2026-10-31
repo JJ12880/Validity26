@@ -78,13 +78,14 @@ AC_DEFUN([BITCOIN_FIND_BDB62],[
     use_bdb=no
   elif test "$BDB_LIBS" = ""; then
     # TODO: Ideally this could find the library version and make sure it matches the headers being used
-    for searchlib in db_cxx-6.2 db_cxx db6_cxx; do
+    for searchlib in db_cxx-6.2 db_cxx db6_cxx db_cxx-5.3; do
       AC_CHECK_LIB([$searchlib],[main],[
         BDB_LIBS="-l${searchlib}"
         break
       ])
     done
     if test "$BDB_LIBS" = ""; then
+        use_bdb=no
         AC_MSG_WARN([libdb_cxx headers missing])
         AC_MSG_WARN(AC_PACKAGE_NAME[ requires this library for BDB (legacy) wallet support])
         AC_MSG_WARN([Passing --without-bdb will suppress this warning])
