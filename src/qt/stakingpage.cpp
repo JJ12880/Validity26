@@ -838,6 +838,7 @@ void StakingPage::onSetDonationClicked()
 
     // Stake tag
     auto* tagBox = new QGroupBox(tr("Stake tag"), &dlg);
+    auto* noTag = new QCheckBox(tr("No tag"), tagBox);
     auto* radioL2 = new QRadioButton(tr("L2 address"), tagBox);
     auto* radioHex = new QRadioButton(tr("Raw hex"), tagBox);
     auto* tagAddressEdit = new QLineEdit(tagBox);
@@ -850,6 +851,7 @@ void StakingPage::onSetDonationClicked()
 
     const std::string currentTag = walletModel->wallet().getStakeTag();
     const std::string currentTagAddress = TagHexToL2Address(currentTag);
+    noTag->setChecked(currentTag.empty());
     if (currentTag.empty() || !currentTagAddress.empty()) {
         radioL2->setChecked(true);
         tagAddressEdit->setText(QString::fromStdString(currentTagAddress));
@@ -858,12 +860,16 @@ void StakingPage::onSetDonationClicked()
         tagHexEdit->setText(QString::fromStdString(currentTag));
     }
     auto syncTagMode = [=] {
-        tagAddressEdit->setEnabled(radioL2->isChecked());
-        tagBook->setEnabled(radioL2->isChecked());
-        tagHexEdit->setEnabled(radioHex->isChecked());
+        const bool tag{!noTag->isChecked()};
+        radioL2->setEnabled(tag);
+        radioHex->setEnabled(tag);
+        tagAddressEdit->setEnabled(tag && radioL2->isChecked());
+        tagBook->setEnabled(tag && radioL2->isChecked());
+        tagHexEdit->setEnabled(tag && radioHex->isChecked());
     };
     syncTagMode();
     connect(radioL2, &QRadioButton::toggled, &dlg, syncTagMode);
+    connect(noTag, &QCheckBox::toggled, &dlg, syncTagMode);
 
     auto* tagGrid = new QGridLayout;
     tagGrid->addWidget(radioL2, 0, 0);
@@ -875,12 +881,11 @@ void StakingPage::onSetDonationClicked()
                                   "block-signing key. Public and permanent. Skipped on dev fund blocks."), tagBox);
     tagNote->setWordWrap(true);
     auto* tagLayout = new QVBoxLayout(tagBox);
+    tagLayout->addWidget(noTag);
     tagLayout->addLayout(tagGrid);
     tagLayout->addWidget(tagNote);
 
     auto* buttons = new QDialogButtonBox(&dlg);
-    QPushButton* removeTagButton = buttons->addButton(tr("Remove tag"), QDialogButtonBox::DestructiveRole);
-    removeTagButton->setEnabled(!currentTag.empty());
     buttons->addButton(QDialogButtonBox::Cancel);
     QPushButton* applyButton = buttons->addButton(tr("Apply"), QDialogButtonBox::AcceptRole);
     applyButton->setDefault(true);
@@ -898,30 +903,28 @@ void StakingPage::onSetDonationClicked()
     auto saveTag = [&](const std::string& hex) {
         options->setData(options->index(OptionsModel::StakeTag, 0), QString::fromStdString(hex));
     };
-    connect(removeTagButton, &QPushButton::clicked, &dlg, [&] {
-        bilingual_str error;
-        walletModel->wallet().setStakeTag("", error);
-        saveTag("");
-        dlg.accept();
-    });
     connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     connect(buttons, &QDialogButtonBox::accepted, &dlg, [&] {
         // Work out the tag first so a bad tag changes nothing.
         std::string tagHex;
-        if (radioL2->isChecked()) {
-            const QString tagAddress = tagAddressEdit->text().trimmed();
-            if (!tagAddress.isEmpty()) {
-                tagHex = L2AddressToTagHex(tagAddress.toStdString());
+        if (!noTag->isChecked()) {
+            const QString tagText = (radioL2->isChecked() ? tagAddressEdit : tagHexEdit)->text().trimmed();
+            if (tagText.isEmpty()) {
+                QMessageBox::warning(&dlg, tr("Stake tag"), tr("Enter the tag, or tick No tag."));
+                return;
+            }
+            if (radioL2->isChecked()) {
+                tagHex = L2AddressToTagHex(tagText.toStdString());
                 if (tagHex.empty()) {
-                    QMessageBox::warning(&dlg, tr("Stake tag"), tr("%1 is not a valid P2PKH or P2SH address.").arg(tagAddress));
+                    QMessageBox::warning(&dlg, tr("Stake tag"), tr("%1 is not a valid P2PKH or P2SH address.").arg(tagText));
                     return;
                 }
-            }
-        } else {
-            tagHex = tagHexEdit->text().trimmed().toLower().toStdString();
-            if (tagHex.size() % 2 != 0) {
-                QMessageBox::warning(&dlg, tr("Stake tag"), tr("The stake tag must be an even number of hex digits."));
-                return;
+            } else {
+                tagHex = tagText.toLower().toStdString();
+                if (tagHex.size() % 2 != 0) {
+                    QMessageBox::warning(&dlg, tr("Stake tag"), tr("The stake tag must be an even number of hex digits."));
+                    return;
+                }
             }
         }
 
@@ -947,6 +950,11 @@ void StakingPage::onSetDonationClicked()
 
     dlg.exec();
     updateDonationLabel();
+    // VALIDITY: the Overview redraws its donation line on balance updates, and this change isn't one.
+    const auto balances = walletModel->getCachedBalance();
+    if (balances.balance != -1) {
+        Q_EMIT walletModel->balanceChanged(balances);
+    }
 }
 
 void StakingPage::onUnlockForStakingClicked()
