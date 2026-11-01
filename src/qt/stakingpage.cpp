@@ -26,6 +26,7 @@
 #include <wallet/types.h>
 #include <wallet/wallet.h>
 
+#include <QCheckBox>
 #include <QDateTime>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -794,16 +795,28 @@ void StakingPage::onSetDonationClicked()
 
     // Donation
     auto* donationBox = new QGroupBox(tr("Donation"), &dlg);
+    auto* noDonation = new QCheckBox(tr("No donation"), donationBox);
     auto* spin = new QSpinBox(donationBox);
     spin->setRange(1, wallet::MAX_DONATION_PERCENTAGE);
     spin->setSuffix(QStringLiteral("%"));
     auto* addressEdit = new QLineEdit(donationBox);
-    addressEdit->setPlaceholderText(tr("X... or Q... address (empty for no donation)"));
+    addressEdit->setPlaceholderText(tr("X... or Q... address"));
     addressEdit->setMinimumWidth(320);
 
     const unsigned int currentPercent = walletModel->wallet().getDonationPercentage();
+    noDonation->setChecked(currentPercent == 0);
     spin->setValue(currentPercent > 0 ? int(currentPercent) : 10);
     addressEdit->setText(QString::fromStdString(walletModel->wallet().getDonationAddress()));
+
+    auto* donationBook = bookButtonFor(addressEdit);
+    auto syncDonation = [=] {
+        const bool donate{!noDonation->isChecked()};
+        spin->setEnabled(donate);
+        addressEdit->setEnabled(donate);
+        donationBook->setEnabled(donate);
+    };
+    syncDonation();
+    connect(noDonation, &QCheckBox::toggled, &dlg, syncDonation);
 
     auto* donationRow1 = new QHBoxLayout;
     donationRow1->addWidget(new QLabel(tr("Donate"), donationBox));
@@ -813,11 +826,12 @@ void StakingPage::onSetDonationClicked()
     auto* donationRow2 = new QHBoxLayout;
     donationRow2->addWidget(new QLabel(tr("to"), donationBox));
     donationRow2->addWidget(addressEdit, 1);
-    donationRow2->addWidget(bookButtonFor(addressEdit));
+    donationRow2->addWidget(donationBook);
     auto* donationNote = new QLabel(tr("Paid from the reward only, never your staked coins. "
                                        "Skipped on dev fund blocks and when below 0.01 VAL."), donationBox);
     donationNote->setWordWrap(true);
     auto* donationLayout = new QVBoxLayout(donationBox);
+    donationLayout->addWidget(noDonation);
     donationLayout->addLayout(donationRow1);
     donationLayout->addLayout(donationRow2);
     donationLayout->addWidget(donationNote);
@@ -867,8 +881,6 @@ void StakingPage::onSetDonationClicked()
     auto* buttons = new QDialogButtonBox(&dlg);
     QPushButton* removeTagButton = buttons->addButton(tr("Remove tag"), QDialogButtonBox::DestructiveRole);
     removeTagButton->setEnabled(!currentTag.empty());
-    QPushButton* removeDonationButton = buttons->addButton(tr("Remove donation"), QDialogButtonBox::DestructiveRole);
-    removeDonationButton->setEnabled(currentPercent > 0);
     buttons->addButton(QDialogButtonBox::Cancel);
     QPushButton* applyButton = buttons->addButton(tr("Apply"), QDialogButtonBox::AcceptRole);
     applyButton->setDefault(true);
@@ -886,12 +898,6 @@ void StakingPage::onSetDonationClicked()
     auto saveTag = [&](const std::string& hex) {
         options->setData(options->index(OptionsModel::StakeTag, 0), QString::fromStdString(hex));
     };
-    connect(removeDonationButton, &QPushButton::clicked, &dlg, [&] {
-        bilingual_str error;
-        walletModel->wallet().setStakeDonation(0, "", error);
-        saveDonation(0, QString());
-        dlg.accept();
-    });
     connect(removeTagButton, &QPushButton::clicked, &dlg, [&] {
         bilingual_str error;
         walletModel->wallet().setStakeTag("", error);
@@ -919,8 +925,12 @@ void StakingPage::onSetDonationClicked()
             }
         }
 
-        const QString address = addressEdit->text().trimmed();
-        const unsigned int percent = address.isEmpty() ? 0 : spin->value();
+        const QString address = noDonation->isChecked() ? QString() : addressEdit->text().trimmed();
+        if (!noDonation->isChecked() && address.isEmpty()) {
+            QMessageBox::warning(&dlg, tr("Stake donation"), tr("Enter the address to donate to, or tick No donation."));
+            return;
+        }
+        const unsigned int percent = noDonation->isChecked() ? 0 : spin->value();
         bilingual_str error;
         if (!walletModel->wallet().setStakeDonation(percent, address.toStdString(), error)) {
             QMessageBox::warning(&dlg, tr("Stake donation"), QString::fromStdString(error.translated));
