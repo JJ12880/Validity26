@@ -173,6 +173,37 @@ point `/etc/apt/sources.list` at `http://archive.debian.org/debian bullseye main
 `http://archive.debian.org/debian-security bullseye-security main`, and run `apt-get` with
 `-o Acquire::Check-Valid-Until=false`.
 
+Berkeley DB
+-----------
+It is recommended to use Berkeley DB 6.2.38 If you have to build it yourself:
+
+```bash
+BITCOIN_ROOT=$(pwd)
+
+# Pick some path to install BDB to, here we create a directory within the radium13 directory
+BDB_PREFIX="${BITCOIN_ROOT}/build"
+mkdir -p $BDB_PREFIX
+
+# Fetch the source and verify that it is not tampered with
+wget https://github.com/RadiumCore/BDB6.2.38/releases/download/6.2.38/db-6.2.38.NC.tar.gz
+
+tar -xzvf db-6.2.38.NC.tar.gz
+
+# Build the library and install to our prefix
+cd db-6.2.38.NC/build_unix/
+#  Note: Do a static build so that it can be embedded into the executable, instead of having to find a .so at runtime
+../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
+make install
+
+# Configure Validity to use our own-built instance of BDB
+cd $BITCOIN_ROOT
+./autogen.sh
+./configure LDFLAGS="-L${BDB_PREFIX}/lib/" CPPFLAGS="-I${BDB_PREFIX}/include/" # (other args...)
+```
+
+**Note**: You only need Berkeley DB if the wallet is enabled (see the section *Disable-Wallet mode* below).
+
+
 ### Fedora
 
 #### Dependency Build Instructions
