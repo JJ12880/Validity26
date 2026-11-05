@@ -1740,10 +1740,7 @@ static CAmount GetTxDevSubsidy(const std::vector<CTxOut>& vout, const Consensus:
     return 0;
 }
 
-// VALIDITY-PORT: AvgFee protocol constants from validity-ref/src/main.h
-static const int AVG_FEE_START_BLOCK = 619480;
-static const int AVG_FEE_START_BLOCK_REVERT = 626550;
-static const int AVG_FEE_START_BLOCK_V2 = 682240;
+// VALIDITY-PORT: AvgFee protocol constants from validity-ref/src/main.h; the start heights are consensus params
 static const int AVG_FEE_SPAN = 1440;
 
 // VALIDITY-PORT: Calculate running average fee over last AVG_FEE_SPAN blocks
@@ -1762,7 +1759,8 @@ static CAmount GetRunningFee(const CBlockIndex* pindexPrev, CAmount nFees)
 CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmount nFees)
 {
     CAmount nSubsidy = GetProofOfStakeSubsidy(nHeight);
-    if (nHeight >= AVG_FEE_START_BLOCK_V2) {
+    const Consensus::Params& consensus = Params().GetConsensus();
+    if (nHeight >= consensus.nAvgFeeStartBlockV2) {
         CAmount nRFee = 0;
         if (nHeight > 5312140 && nHeight < 5313581) {
             nRFee = 70;
@@ -1773,9 +1771,9 @@ CAmount GetExpectedStakeReward(int nHeight, const CBlockIndex* pindexPrev, CAmou
         // be rebuilt (-reindex); there is intentionally no fallback that skips the check.
         nRFee += nRunningFee;
         return nSubsidy + nRFee;
-    } else if (nHeight >= AVG_FEE_START_BLOCK_REVERT) {
+    } else if (nHeight >= consensus.nAvgFeeStartBlockRevert) {
         return nSubsidy + nFees;
-    } else if (nHeight >= AVG_FEE_START_BLOCK) {
+    } else if (nHeight >= consensus.nAvgFeeStartBlock) {
         CAmount nRunningFee = GetRunningFee(pindexPrev, nFees);
         return nSubsidy + nRunningFee;
     } else {
@@ -1813,14 +1811,13 @@ CAmount GetProofOfStakeSubsidy(int nHeight)
     const int DEV_FUND_BLOCK_HEIGHT = Params().GetConsensus().nDevFundBlockHeight;
     static const CAmount nYear = 525600; // ~blocks per year
 
-    if (nHeight >= 0 && nHeight <= 2879) {
-        // Pre-PoS era: heights 0-2879 are PoW blocks (block 2879 = "last pow"
-        // per checkpoints, block 2880 = "first pos"). PoS subsidy is meaningless
-        // here. The original port had <= 2779 which left heights 2780-2879
-        // falling through to the initial nSubsidy default; that default was
-        // 5 * COIN by accident (matching the 30241-337999 range's value).
-        // Correct bound is 2879 to align with the actual PoW/PoS boundary.
+    if (nHeight >= 0 && nHeight <= 2779) {
         nSubsidy = 0;
+    } else if (nHeight >= 2780 && nHeight <= 2879) {
+        // VALIDITY: 13.x pays its 5 * COIN default here, as getFixedStakeSubsidy has no branch for these heights.
+        // Mainnet's blocks up to 2879 are PoW (checkpoints: 2879 last PoW, 2880 first PoS), so only a testnet that
+        // stakes early reaches this, and there v26 must pay what 13.x pays.
+        nSubsidy = 5 * COIN;
     } else if (nHeight >= 2880 && nHeight <= 30240) {
         nSubsidy = 25 * COIN;
     } else if (nHeight >= 30241 && nHeight <= 337999) {
@@ -3842,7 +3839,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& st
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-version", "bad block version");
 
     // VALIDITY-PORT: After AvgFee protocol activation, require version >= 8
-    if (block.nVersion < 8 && block.GetBlockTime() > 1470919889)
+    if (block.nVersion < 8 && block.GetBlockTime() > consensusParams.nAvgFeeProtocolTime)
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-version", "rejected for avg fee protocol");
 
     // Check proof of work hash

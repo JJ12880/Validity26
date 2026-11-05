@@ -18,5 +18,6 @@ static const uint8_t chainparams_seed_main[] = {
 };
 
 static const uint8_t chainparams_seed_test[] = {
+    0x01,0x04,0x2d,0x4c,0x3f,0x63,0x6d,0x0a, // 45.76.63.99:27914, the 13.x testnet's seed (dejvis90/Validity pnSeed6_test)
 };
 #endif // BITCOIN_CHAINPARAMSSEEDS_H

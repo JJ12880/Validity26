@@ -219,7 +219,8 @@ public:
 };
 
 /**
- * Testnet (v1): public test network which is reset from time to time.
+ * Testnet: the 13.x testnet that davis90 relaunched in 2026 (github.com/dejvis90/Validity, main branch), so 13.x and
+ * v26 nodes share one public test network. Every consensus value here must match that client's CTestNetParams.
  */
 class CTestNetParams : public CChainParams {
 public:
@@ -230,12 +231,11 @@ public:
         consensus.nMaxReorganizationDepth = 500;
         consensus.CSVHeight = std::numeric_limits<int>::max();
         consensus.MinBIP9WarningHeight = std::numeric_limits<int>::max();
-        // VALIDITY-PORT: Testnet limits from validity-ref
         consensus.powLimit = uint256S("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.posLimitV2 = uint256S("000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nTargetTimespan = 16 * 60; // 16 mins
-        consensus.nTargetTimespanNEW = 16 * 60; // same as nTargetTimespan for testnet/regtest
+        consensus.posLimitV2 = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nTargetTimespan = 1 * 60; // 1 min
+        consensus.nTargetTimespanNEW = 15 * 60; // 15 min (after block 48)
         consensus.nTargetSpacingV1 = 60;
         consensus.nTargetSpacing = 64;
         consensus.fPowAllowMinDifficultyBlocks = true;
@@ -250,32 +250,44 @@ public:
 
 
 
-        // VALIDITY-PORT: Protocol times from validity-ref testnet
-        consensus.nProtocolV1RetargetingFixedTime = 1395631999;
-        consensus.nProtocolV2Time = 1407053625;
+        // VALIDITY: 13.x applies V1 retarget fix and V2 after nGenesisBlockTime (mainnet's genesis time) on every network
+        consensus.nProtocolV1RetargetingFixedTime = 1431857735;
+        consensus.nProtocolV2Time = 1431857735;
         consensus.nProtocolV3Time = 1444028400;
         consensus.nProtocolV3_1Time = std::numeric_limits<int64_t>::max();
-        consensus.nLastPOWBlock = 0x7fffffff;
+        consensus.nLastPOWBlock = 20160;
         consensus.nStakeTimestampMask = 0xf;
-        consensus.nCoinbaseMaturity = 10;
-        consensus.nStakeMinAge = 8 * 60 * 60; // 8 hours
+        consensus.nCoinbaseMaturity = 60;
+        consensus.nStakeMinAge = 6 * 60 * 60; // 6 hours
+
+        // VALIDITY: the average fee and the dev fund (mainnet's script and interval) start right after the PoW blocks
+        consensus.nAvgFeeStartBlock = 20161;
+        consensus.nAvgFeeStartBlockRevert = 20161;
+        consensus.nAvgFeeStartBlockV2 = 20161;
+        consensus.nAvgFeeProtocolTime = 1773056230;
+        consensus.nDevFundBlockHeight = 20161;
+        consensus.nDevFundTime = 1535581967;
+        consensus.sDevFundScript = "a914622b2274e97ebce0b25a5316ceca0af02120395087";
+        consensus.nDevFundPaymentInterval = 10080;
 
         consensus.nMinimumChainWork = uint256S("0x00");
         consensus.defaultAssumeValid = uint256S("0x00");
 
-        // VALIDITY-PORT: Testnet message start from validity-ref
-        pchMessageStart[0] = 0xcd;
-        pchMessageStart[1] = 0xf2;
-        pchMessageStart[2] = 0xc0;
-        pchMessageStart[3] = 0xef;
+        pchMessageStart[0] = 0x5f;
+        pchMessageStart[1] = 0x1f;
+        pchMessageStart[2] = 0xfe;
+        pchMessageStart[3] = 0xde;
         nDefaultPort = 25714;
-        m_assumed_blockchain_size = 5;
+        m_assumed_blockchain_size = 1;
 
-        // VALIDITY-PORT: Use permissive nBits for testnet genesis since pszTimestamp changed
-        genesis = CreateGenesisBlock(1393221600, 216178, 0x207fffff, 1, 0);
+        // VALIDITY: the 13.x client searches from nonce 0 at startup for a scrypt hash within powLimit; this is the
+        // nonce it finds.
+        genesis = CreateGenesisBlock(1393221610, 183668, 0x1f00ffff, 1, 0);
         consensus.hashGenesisBlock = genesis.GetHash();
+        assert(consensus.hashGenesisBlock == uint256S("0x0000fa1e232dad587f38c17f69ec8d47094fcd5617f90bc456e36e3b58b8e6bb"));
+        assert(genesis.hashMerkleRoot == uint256S("0x5b26b25b6726b986016f1cad7582aa793249c0e149485390f787e3e3b28cbb04"));
 
-        vFixedSeeds.clear();
+        vFixedSeeds = std::vector<uint8_t>(std::begin(chainparams_seed_test), std::end(chainparams_seed_test));
         vSeeds.clear();
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
@@ -289,19 +301,18 @@ public:
         fDefaultConsistencyChecks = false;
         m_is_mockable_chain = false;
 
-        // VALIDITY-PORT: Testnet checkpoint from validity-ref
         checkpointData = {
             {
-                { 90235, uint256S("0x567898e79184dc2f7dc3a661f794f28566e4b856d70180914f7371b1b3cc82d8")},
+                {0, consensus.hashGenesisBlock},
             }
         };
 
         m_assumeutxo_data = {};
 
         chainTxData = ChainTxData{
-            .nTime    = 1549558800,
-            .nTxCount = 179080,
-            .dTxRate  = 2.0,
+            .nTime    = 0,
+            .nTxCount = 0,
+            .dTxRate  = 0.0,
         };
 
         vDevFundAddress = {};

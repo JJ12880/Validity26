@@ -128,6 +128,13 @@ struct Params {
     std::string sDevFundScript; // hex-encoded scriptPubKey for dev fund
     int nDevFundPaymentInterval{10080}; // pay every ~10080 blocks (~1 week)
 
+    // VALIDITY: average-fee protocol start heights, and the time after which blocks need version 8. Mainnet values;
+    // the testnet sets its own, as the 13.x testnet in dejvis90/Validity does, so v26 follows the same chain.
+    int nAvgFeeStartBlock{619480};
+    int nAvgFeeStartBlockRevert{626550};
+    int nAvgFeeStartBlockV2{682240};
+    int64_t nAvgFeeProtocolTime{1470919889};
+
     bool IsProtocolV4(int nHeight) const { return nHeight >= nDevFundBlockHeight; }
     bool IsProtocolV4(int64_t nTime) const { return nTime >= nDevFundTime; }
     bool IsBlockDevFund(int nHeight) const
