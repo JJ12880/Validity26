@@ -219,7 +219,7 @@ public:
 };
 
 /**
- * Testnet: the 13.x testnet that davis90 relaunched in 2026 (github.com/dejvis90/Validity, main branch), so 13.x and
+ * Testnet: the 13.x testnet that davis90 relaunched in 2026 (github.com/dejvis90/Validity, main, eba677b), so 13.x and
  * v26 nodes share one public test network. Every consensus value here must match that client's CTestNetParams.
  */
 class CTestNetParams : public CChainParams {
@@ -273,19 +273,17 @@ public:
         consensus.nMinimumChainWork = uint256S("0x00");
         consensus.defaultAssumeValid = uint256S("0x00");
 
-        pchMessageStart[0] = 0x5f;
-        pchMessageStart[1] = 0x1f;
-        pchMessageStart[2] = 0xfe;
-        pchMessageStart[3] = 0xde;
+        pchMessageStart[0] = 0x4f;
+        pchMessageStart[1] = 0x9f;
+        pchMessageStart[2] = 0xee;
+        pchMessageStart[3] = 0xce;
         nDefaultPort = 25714;
         m_assumed_blockchain_size = 1;
 
-        // VALIDITY: the 13.x client searches from nonce 0 at startup for a scrypt hash within powLimit; this is the
-        // nonce it finds.
-        genesis = CreateGenesisBlock(1393221610, 183668, 0x1f00ffff, 1, 0);
+        genesis = CreateGenesisBlock(1393221611, 79592, 0x1f00ffff, 1, 0);
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x0000fa1e232dad587f38c17f69ec8d47094fcd5617f90bc456e36e3b58b8e6bb"));
-        assert(genesis.hashMerkleRoot == uint256S("0x5b26b25b6726b986016f1cad7582aa793249c0e149485390f787e3e3b28cbb04"));
+        assert(consensus.hashGenesisBlock == uint256S("0x0000f79ce892faa9217de0d79bbd591f884ad1601dface52eb81c2d90bfd1dac"));
+        assert(genesis.hashMerkleRoot == uint256S("0xea198f231ff15ad73389fa1ec5cc8084b0a539716560e547300b03440cfe1d64"));
 
         vFixedSeeds = std::vector<uint8_t>(std::begin(chainparams_seed_test), std::end(chainparams_seed_test));
         vSeeds.clear();
